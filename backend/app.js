@@ -18,22 +18,26 @@ connect();
 const app = express();
 
 const allowedOrigins = [
-  'http://localhost:5173', // Vite default port
-  'http://localhost:3000', // React default port
-  process.env.CLIENT_URL   // Live Vercel Frontend URL
-].filter(Boolean)
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://my-app-frontend-gpo8.onrender.com',
+    process.env.CLIENT_URL
+].filter(Boolean); // Removes undefined values if CLIENT_URL is not set
 
+// 2. Configure CORS middleware
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like Mobile apps or Postman) or matched origins
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true)
-    } else {
-      callback(null, false)
-    }
-  },
-  credentials: true
-}))
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, Postman, or server-to-server requests)
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error(`CORS policy violation: ${origin} is not allowed.`));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    credentials: true,
+    optionsSuccessStatus: 200 // Legacy browser support for preflight requests
+}));
 
 // app.use(cors());
 app.use(morgan('dev'));
