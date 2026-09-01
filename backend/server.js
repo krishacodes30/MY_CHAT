@@ -199,19 +199,12 @@ const server =
 |--------------------------------------------------------------------------
 */
 
-const io =
-    new Server(
-        server,
-        {
-            cors: {
-                origin:
-                    process.env.FRONTEND_URL,
-
-                credentials:
-                    true
-            }
-        }
-    )
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true,
+  },
+});
 
 
 /*
@@ -704,17 +697,24 @@ io.on(
 |--------------------------------------------------------------------------
 */
 
-const PORT =
-    process.env.PORT || 5000
+// const PORT =
+//     process.env.PORT || 5000
 
 
-server.listen(
-    PORT,
+// server.listen(
+//     PORT,
 
-    () => {
+//     () => {
 
-        console.log(
-            `Server running on port ${PORT}`
-        )
-    }
-)
+//         console.log(
+//             `Server running on port ${PORT}`
+//         )
+//     }
+// )
+
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running locally on http://localhost:${PORT}`)
+  })
+}

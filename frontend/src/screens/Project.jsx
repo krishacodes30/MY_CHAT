@@ -2456,16 +2456,23 @@ const Project = () => {
         }
 
 
-        const socket =
-            io(
-                API_URL,
-                {
-                    auth: {
-                        token:
-                            getToken()
-                    }
-                }
-            )
+        // const socket =
+        //     io(
+        //         API_URL,
+        //         {
+        //             auth: {
+        //                 token:
+        //                     getToken()
+        //             }
+        //         }
+        //     )
+
+         const socket = io(API_URL, {
+  auth: {
+    token: localStorage.getItem('token'),
+  },
+//   autoConnect: false,
+});
 
 
         socketRef.current =
