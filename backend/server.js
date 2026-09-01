@@ -201,7 +201,7 @@ const server =
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: 'https://my-app-frontend-gpo8.onrender.com'||process.env.CLIENT_URL || 'http://localhost:5173',
     credentials: true,
   },
 });

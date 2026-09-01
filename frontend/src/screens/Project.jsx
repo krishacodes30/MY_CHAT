@@ -2466,12 +2466,10 @@ const Project = () => {
         //             }
         //         }
         //     )
-
-         const socket = io(API_URL, {
-  auth: {
-    token: localStorage.getItem('token'),
-  },
-//   autoConnect: false,
+const socket = io(API_URL, {
+    auth: { token: getToken() },
+    withCredentials: true,
+    transports: ['websocket', 'polling'] // Enforce websocket fallback
 });
 
 
