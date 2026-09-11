@@ -21,6 +21,7 @@ const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
     'https://my-app-frontend-gpo8.onrender.com',
+    'https://my-app-backend-utvv.onrender.com',
     process.env.CLIENT_URL
 ].filter(Boolean); // Removes undefined values if CLIENT_URL is not set
 

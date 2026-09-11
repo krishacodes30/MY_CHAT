@@ -1,160 +1,671 @@
-import { GoogleGenAI } from '@google/genai'
-import { QdrantClient } from '@qdrant/js-client-rest'
-import crypto from 'crypto'
+// import { GoogleGenAI } from '@google/genai'
+// import { QdrantClient } from '@qdrant/js-client-rest'
+// import crypto from 'crypto'
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+// const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+
+// const qdrant = new QdrantClient({
+//   url: process.env.QDRANT_URL,
+//   apiKey: process.env.QDRANT_API_KEY
+// })
+
+// const COLLECTION = process.env.QDRANT_COLLECTION || 'project_vectors'
+// const EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001'
+// const DIMENSIONS = 768
+
+// export async function initVectorStore() {
+//   try {
+//     const exists = await qdrant.collectionExists(COLLECTION)
+//     if (!exists) {
+//       await qdrant.createCollection(COLLECTION, {
+//         vectors: { size: DIMENSIONS, distance: 'Cosine' }
+//       })
+//       console.log(`Qdrant collection created: ${COLLECTION}`)
+//     }
+
+//     try {
+//       await qdrant.createPayloadIndex(COLLECTION, { field_name: 'projectId', field_schema: 'keyword' })
+//     } catch (error) {
+//       console.log('projectId index already exists')
+//     }
+
+//     try {
+//       await qdrant.createPayloadIndex(COLLECTION, { field_name: 'type', field_schema: 'keyword' })
+//     } catch (error) {
+//       console.log('type index already exists')
+//     }
+
+//     console.log(`Qdrant ready: ${COLLECTION}`)
+//   } catch (error) {
+//     console.error('Qdrant initialization failed:', error)
+//     throw error
+//   }
+// }
+
+// export async function createEmbedding(text, taskType = 'RETRIEVAL_DOCUMENT') {
+//   if (typeof text !== 'string' || !text.trim()) {
+//     throw new Error('Text is required for embedding')
+//   }
+
+//   try {
+//     const response = await ai.models.embedContent({
+//       model: EMBEDDING_MODEL,
+//       contents: text.trim(),
+//       config: { taskType, outputDimensionality: DIMENSIONS }
+//     })
+
+//     const embedding = response?.embeddings?.[0]?.values
+
+//     if (!Array.isArray(embedding) || embedding.length === 0) {
+//       console.error('Invalid embedding response:', response)
+//       throw new Error('Gemini returned an invalid embedding')
+//     }
+
+//     if (embedding.length !== DIMENSIONS) {
+//       throw new Error(`Embedding dimension mismatch. Expected ${DIMENSIONS}, received ${embedding.length}`)
+//     }
+
+//     return embedding
+//   } catch (error) {
+//     console.error('Gemini embedding failed:', error)
+//     throw error
+//   }
+// }
+
+// export async function createEmbeddings(texts, taskType = 'RETRIEVAL_DOCUMENT') {
+//   if (!Array.isArray(texts) || texts.length === 0) return []
+
+//   const embeddings = []
+//   for (let index = 0; index < texts.length; index++) {
+//     const text = texts[index]
+//     if (typeof text !== 'string' || !text.trim()) {
+//       throw new Error(`Invalid text at chunk ${index + 1}`)
+//     }
+//     console.log(`Creating embedding ${index + 1}/${texts.length}`)
+//     const embedding = await createEmbedding(text, taskType)
+//     embeddings.push(embedding)
+//   }
+//   return embeddings
+// }
+
+// export async function storeVectors(points) {
+//   if (!Array.isArray(points) || points.length === 0) return []
+
+//   for (let index = 0; index < points.length; index++) {
+//     const point = points[index]
+//     if (!point?.projectId) {
+//       throw new Error(`projectId is required for point ${index + 1}`)
+//     }
+//     if (typeof point.content !== 'string' || !point.content.trim()) {
+//       throw new Error(`content is required for point ${index + 1}`)
+//     }
+//   }
+
+//   const embeddings = await createEmbeddings(points.map(point => point.content), 'RETRIEVAL_DOCUMENT')
+
+//   if (embeddings.length !== points.length) {
+//     throw new Error(`Embedding count mismatch. Expected ${points.length}, received ${embeddings.length}`)
+//   }
+
+//   const qdrantPoints = points.map((point, index) => ({
+//     id: point.id || crypto.randomUUID(),
+//     vector: embeddings[index],
+//     payload: {
+//       projectId: String(point.projectId),
+//       type: point.type || 'document',
+//       content: point.content,
+//       ...(point.fileName && { fileName: point.fileName }),
+//       ...(point.chunkIndex !== undefined && { chunkIndex: point.chunkIndex })
+//     }
+//   }))
+
+//   await qdrant.upsert(COLLECTION, { wait: true, points: qdrantPoints })
+//   console.log(`Stored ${qdrantPoints.length} vectors in Qdrant`)
+//   return qdrantPoints
+// }
+
+// export async function searchVectors({ projectId, query, type = 'document', limit = 5 }) {
+//   if (!projectId) throw new Error('projectId is required for vector search')
+//   if (typeof query !== 'string' || !query.trim()) return []
+
+//   const queryVector = await createEmbedding(query.trim(), 'RETRIEVAL_QUERY')
+//   const must = [{ key: 'projectId', match: { value: String(projectId) } }]
+
+//   if (type) {
+//     must.push({ key: 'type', match: { value: type } })
+//   }
+
+//   const result = await qdrant.query(COLLECTION, {
+//     query: queryVector,
+//     filter: { must },
+//     limit: Number(limit) || 5,
+//     with_payload: true,
+//     with_vector: false
+//   })
+
+//   return result?.points || []
+// }
+
+// export async function deleteProjectVectors(projectId) {
+//   if (!projectId) throw new Error('projectId is required')
+
+//   await qdrant.delete(COLLECTION, {
+//     wait: true,
+//     filter: {
+//       must: [{ key: 'projectId', match: { value: String(projectId) } }]
+//     }
+//   })
+
+//   console.log(`Deleted vectors for project ${projectId}`)
+// }
+
+
+import crypto from 'crypto';
+import { GoogleGenAI } from '@google/genai';
+import { QdrantClient } from '@qdrant/js-client-rest';
+
+const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY
+});
 
 const qdrant = new QdrantClient({
-  url: process.env.QDRANT_URL,
-  apiKey: process.env.QDRANT_API_KEY
-})
+    url: process.env.QDRANT_URL || 'http://localhost:6333',
+    apiKey: process.env.QDRANT_API_KEY
+});
 
-const COLLECTION = process.env.QDRANT_COLLECTION || 'project_vectors'
-const EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001'
-const DIMENSIONS = 768
+const COLLECTION = process.env.QDRANT_COLLECTION || 'project_vectors';
+const EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-2';
+const DIMENSIONS = Number(process.env.GEMINI_EMBEDDING_DIMENSIONS || 3072||768);
+const MAX_SEARCH_LIMIT = 50;
+const UPSERT_BATCH_SIZE = 50;
+
+let initialized = false;
+let initializationPromise = null;
 
 export async function initVectorStore() {
-  try {
-    const exists = await qdrant.collectionExists(COLLECTION)
-    if (!exists) {
-      await qdrant.createCollection(COLLECTION, {
-        vectors: { size: DIMENSIONS, distance: 'Cosine' }
-      })
-      console.log(`Qdrant collection created: ${COLLECTION}`)
+    if (initialized) return;
+
+    if (initializationPromise) {
+        return initializationPromise;
     }
+
+    initializationPromise = initialize();
 
     try {
-      await qdrant.createPayloadIndex(COLLECTION, { field_name: 'projectId', field_schema: 'keyword' })
-    } catch (error) {
-      console.log('projectId index already exists')
+        await initializationPromise;
+        initialized = true;
+    } finally {
+        initializationPromise = null;
     }
-
-    try {
-      await qdrant.createPayloadIndex(COLLECTION, { field_name: 'type', field_schema: 'keyword' })
-    } catch (error) {
-      console.log('type index already exists')
-    }
-
-    console.log(`Qdrant ready: ${COLLECTION}`)
-  } catch (error) {
-    console.error('Qdrant initialization failed:', error)
-    throw error
-  }
 }
 
-export async function createEmbedding(text, taskType = 'RETRIEVAL_DOCUMENT') {
-  if (typeof text !== 'string' || !text.trim()) {
-    throw new Error('Text is required for embedding')
-  }
+async function initialize() {
+    if (!process.env.GEMINI_API_KEY) {
+        throw new Error('GEMINI_API_KEY is missing');
+    }
 
-  try {
-    const response = await ai.models.embedContent({
-      model: EMBEDDING_MODEL,
-      contents: text.trim(),
-      config: { taskType, outputDimensionality: DIMENSIONS }
-    })
+    if (!process.env.QDRANT_URL) {
+        throw new Error('QDRANT_URL is missing');
+    }
 
-    const embedding = response?.embeddings?.[0]?.values
+    const exists = await qdrant.collectionExists(COLLECTION);
 
-    if (!Array.isArray(embedding) || embedding.length === 0) {
-      console.error('Invalid embedding response:', response)
-      throw new Error('Gemini returned an invalid embedding')
+    if (!exists) {
+        await qdrant.createCollection(COLLECTION, {
+            vectors: {
+                size: DIMENSIONS,
+                distance: 'Cosine'
+            }
+        });
+
+        console.log(`Qdrant collection created: ${COLLECTION}`);
+    }
+
+    const indexes = [
+        'projectId',
+        'type',
+        'docId',
+        'fileName',
+        'contentType',
+        'parentId'
+    ];
+
+    for (const field of indexes) {
+        await createPayloadIndex(field);
+    }
+
+    console.log(
+        `Qdrant ready: ${COLLECTION} | ${EMBEDDING_MODEL} | ${DIMENSIONS}D`
+    );
+}
+
+async function createPayloadIndex(fieldName) {
+    try {
+        await qdrant.createPayloadIndex(COLLECTION, {
+            field_name: fieldName,
+            field_schema: 'keyword'
+        });
+    } catch (error) {
+        const message = error?.message || '';
+
+        if (
+            !message.includes('already exists') &&
+            !message.includes('already indexed') &&
+            !message.includes('Index already exists')
+        ) {
+            console.error(
+                `Qdrant index error for ${fieldName}:`,
+                message
+            );
+            throw error;
+        }
+    }
+}
+
+async function ensureReady() {
+    await initVectorStore();
+}
+
+function validateEmbedding(embedding) {
+    if (!Array.isArray(embedding) || !embedding.length) {
+        throw new Error('Gemini returned an invalid embedding');
     }
 
     if (embedding.length !== DIMENSIONS) {
-      throw new Error(`Embedding dimension mismatch. Expected ${DIMENSIONS}, received ${embedding.length}`)
+        throw new Error(
+            `Embedding dimension mismatch. Expected ${DIMENSIONS}, received ${embedding.length}`
+        );
     }
 
-    return embedding
-  } catch (error) {
-    console.error('Gemini embedding failed:', error)
-    throw error
-  }
+    return embedding;
 }
 
-export async function createEmbeddings(texts, taskType = 'RETRIEVAL_DOCUMENT') {
-  if (!Array.isArray(texts) || texts.length === 0) return []
-
-  const embeddings = []
-  for (let index = 0; index < texts.length; index++) {
-    const text = texts[index]
-    if (typeof text !== 'string' || !text.trim()) {
-      throw new Error(`Invalid text at chunk ${index + 1}`)
+function addRetrievalInstruction(text, type) {
+    if (EMBEDDING_MODEL !== 'gemini-embedding-2') {
+        return text;
     }
-    console.log(`Creating embedding ${index + 1}/${texts.length}`)
-    const embedding = await createEmbedding(text, taskType)
-    embeddings.push(embedding)
-  }
-  return embeddings
+
+    if (type === 'query') {
+        return `task: retrieval query | query: ${text}`;
+    }
+
+    return `task: retrieval document | document: ${text}`;
+}
+
+export async function createEmbedding(text, mode = 'document') {
+    if (typeof text !== 'string' || !text.trim()) {
+        throw new Error('Text is required for embedding');
+    }
+
+    await ensureReady();
+
+    const cleanText = text.trim();
+
+    const embeddingText =
+        addRetrievalInstruction(
+            cleanText,
+            mode === 'query' ? 'query' : 'document'
+        );
+
+    try {
+        const response = await ai.models.embedContent({
+            model: EMBEDDING_MODEL,
+            contents: embeddingText,
+            config: {
+                outputDimensionality: DIMENSIONS
+            }
+        });
+
+        const embedding =
+            response?.embeddings?.[0]?.values;
+
+        return validateEmbedding(embedding);
+    } catch (error) {
+        console.error(
+            'Gemini embedding failed:',
+            error?.message || error
+        );
+
+        throw new Error(
+            `Embedding generation failed: ${error?.message || 'Unknown error'}`
+        );
+    }
+}
+
+export async function createEmbeddings(
+    texts,
+    mode = 'document'
+) {
+    if (!Array.isArray(texts) || !texts.length) {
+        return [];
+    }
+
+    const embeddings = [];
+
+    for (let index = 0; index < texts.length; index++) {
+        const text = texts[index];
+
+        if (
+            typeof text !== 'string' ||
+            !text.trim()
+        ) {
+            throw new Error(
+                `Invalid text at chunk ${index + 1}`
+            );
+        }
+
+        console.log(
+            `Embedding ${index + 1}/${texts.length}`
+        );
+
+        const embedding =
+            await createEmbedding(text, mode);
+
+        embeddings.push(embedding);
+    }
+
+    return embeddings;
 }
 
 export async function storeVectors(points) {
-  if (!Array.isArray(points) || points.length === 0) return []
-
-  for (let index = 0; index < points.length; index++) {
-    const point = points[index]
-    if (!point?.projectId) {
-      throw new Error(`projectId is required for point ${index + 1}`)
+    if (!Array.isArray(points) || !points.length) {
+        return [];
     }
-    if (typeof point.content !== 'string' || !point.content.trim()) {
-      throw new Error(`content is required for point ${index + 1}`)
+
+    await ensureReady();
+
+    for (let index = 0; index < points.length; index++) {
+        const point = points[index];
+
+        if (!point?.projectId) {
+            throw new Error(
+                `projectId is required for point ${index + 1}`
+            );
+        }
+
+        if (
+            typeof point.content !== 'string' ||
+            !point.content.trim()
+        ) {
+            throw new Error(
+                `content is required for point ${index + 1}`
+            );
+        }
     }
-  }
 
-  const embeddings = await createEmbeddings(points.map(point => point.content), 'RETRIEVAL_DOCUMENT')
+    const embeddings = await createEmbeddings(
+        points.map(point => point.content),
+        'document'
+    );
 
-  if (embeddings.length !== points.length) {
-    throw new Error(`Embedding count mismatch. Expected ${points.length}, received ${embeddings.length}`)
-  }
-
-  const qdrantPoints = points.map((point, index) => ({
-    id: point.id || crypto.randomUUID(),
-    vector: embeddings[index],
-    payload: {
-      projectId: String(point.projectId),
-      type: point.type || 'document',
-      content: point.content,
-      ...(point.fileName && { fileName: point.fileName }),
-      ...(point.chunkIndex !== undefined && { chunkIndex: point.chunkIndex })
+    if (embeddings.length !== points.length) {
+        throw new Error(
+            `Embedding count mismatch. Expected ${points.length}, received ${embeddings.length}`
+        );
     }
-  }))
 
-  await qdrant.upsert(COLLECTION, { wait: true, points: qdrantPoints })
-  console.log(`Stored ${qdrantPoints.length} vectors in Qdrant`)
-  return qdrantPoints
+    const qdrantPoints = points.map(
+        (point, index) => ({
+            id: point.id || crypto.randomUUID(),
+            vector: embeddings[index],
+            payload: {
+                projectId: String(point.projectId),
+                type: String(
+                    point.type || 'document'
+                ),
+                content: point.content.trim(),
+
+                ...(point.docId && {
+                    docId: String(point.docId)
+                }),
+
+                ...(point.fileName && {
+                    fileName: String(point.fileName)
+                }),
+
+                ...(point.pageNumber !== undefined && {
+                    pageNumber: Number(point.pageNumber)
+                }),
+
+                ...(point.sectionIndex !== undefined && {
+                    sectionIndex: Number(point.sectionIndex)
+                }),
+
+                ...(point.chunkIndex !== undefined && {
+                    chunkIndex: Number(point.chunkIndex)
+                }),
+
+                ...(point.parentId && {
+                    parentId: String(point.parentId)
+                }),
+
+                ...(point.parentContent && {
+                    parentContent: String(point.parentContent)
+                }),
+
+                ...(point.sectionTitle && {
+                    sectionTitle: String(
+                        point.sectionTitle
+                    )
+                }),
+
+                ...(point.sectionLevel !== undefined && {
+                    sectionLevel: Number(
+                        point.sectionLevel
+                    )
+                }),
+
+                ...(point.contentType && {
+                    contentType: String(
+                        point.contentType
+                    )
+                }),
+
+                ...(point.hasVisual !== undefined && {
+                    hasVisual: Boolean(
+                        point.hasVisual
+                    )
+                }),
+
+                ...(point.visionAttempted !== undefined && {
+                    visionAttempted: Boolean(
+                        point.visionAttempted
+                    )
+                }),
+
+                ...(point.visionFailed !== undefined && {
+                    visionFailed: Boolean(
+                        point.visionFailed
+                    )
+                }),
+
+                createdAt:
+                    point.createdAt ||
+                    new Date().toISOString()
+            }
+        })
+    );
+
+    for (
+        let start = 0;
+        start < qdrantPoints.length;
+        start += UPSERT_BATCH_SIZE
+    ) {
+        const batch = qdrantPoints.slice(
+            start,
+            start + UPSERT_BATCH_SIZE
+        );
+
+        await qdrant.upsert(COLLECTION, {
+            wait: true,
+            points: batch
+        });
+
+        console.log(
+            `Stored vectors ${start + 1}-${Math.min(
+                start + batch.length,
+                qdrantPoints.length
+            )}/${qdrantPoints.length}`
+        );
+    }
+
+    return qdrantPoints;
 }
 
-export async function searchVectors({ projectId, query, type = 'document', limit = 5 }) {
-  if (!projectId) throw new Error('projectId is required for vector search')
-  if (typeof query !== 'string' || !query.trim()) return []
+export async function searchVectors({
+    projectId,
+    query,
+    type = 'document',
+    limit = 5
+}) {
+    if (!projectId) {
+        throw new Error(
+            'projectId is required for vector search'
+        );
+    }
 
-  const queryVector = await createEmbedding(query.trim(), 'RETRIEVAL_QUERY')
-  const must = [{ key: 'projectId', match: { value: String(projectId) } }]
+    if (
+        typeof query !== 'string' ||
+        !query.trim()
+    ) {
+        return [];
+    }
 
-  if (type) {
-    must.push({ key: 'type', match: { value: type } })
-  }
+    await ensureReady();
 
-  const result = await qdrant.query(COLLECTION, {
-    query: queryVector,
-    filter: { must },
-    limit: Number(limit) || 5,
-    with_payload: true,
-    with_vector: false
-  })
+    const safeLimit = Math.min(
+        Math.max(Number(limit) || 5, 1),
+        MAX_SEARCH_LIMIT
+    );
 
-  return result?.points || []
+    const queryVector =
+        await createEmbedding(
+            query.trim(),
+            'query'
+        );
+
+    const must = [
+        {
+            key: 'projectId',
+            match: {
+                value: String(projectId)
+            }
+        }
+    ];
+
+    if (type) {
+        must.push({
+            key: 'type',
+            match: {
+                value: String(type)
+            }
+        });
+    }
+
+    const result = await qdrant.query(
+        COLLECTION,
+        {
+            query: queryVector,
+            filter: {
+                must
+            },
+            limit: safeLimit,
+            with_payload: true,
+            with_vector: false
+        }
+    );
+
+    return result?.points || [];
 }
 
-export async function deleteProjectVectors(projectId) {
-  if (!projectId) throw new Error('projectId is required')
-
-  await qdrant.delete(COLLECTION, {
-    wait: true,
-    filter: {
-      must: [{ key: 'projectId', match: { value: String(projectId) } }]
+export async function deleteProjectVectors(
+    projectId
+) {
+    if (!projectId) {
+        throw new Error(
+            'projectId is required'
+        );
     }
-  })
 
-  console.log(`Deleted vectors for project ${projectId}`)
+    await ensureReady();
+
+    await qdrant.delete(COLLECTION, {
+        wait: true,
+        filter: {
+            must: [
+                {
+                    key: 'projectId',
+                    match: {
+                        value: String(projectId)
+                    }
+                }
+            ]
+        }
+    });
+
+    console.log(
+        `Deleted all vectors for project ${projectId}`
+    );
+}
+
+export async function deleteDocumentVectors({
+    projectId,
+    docId
+}) {
+    if (!projectId) {
+        throw new Error(
+            'projectId is required'
+        );
+    }
+
+    if (!docId) {
+        throw new Error(
+            'docId is required'
+        );
+    }
+
+    await ensureReady();
+
+    await qdrant.delete(COLLECTION, {
+        wait: true,
+        filter: {
+            must: [
+                {
+                    key: 'projectId',
+                    match: {
+                        value: String(projectId)
+                    }
+                },
+                {
+                    key: 'docId',
+                    match: {
+                        value: String(docId)
+                    }
+                }
+            ]
+        }
+    });
+
+    console.log(
+        `Deleted document ${docId} from project ${projectId}`
+    );
+}
+
+export async function getVectorStoreInfo() {
+    await ensureReady();
+
+    const info =
+        await qdrant.getCollection(
+            COLLECTION
+        );
+
+    return {
+        collection: COLLECTION,
+        embeddingModel: EMBEDDING_MODEL,
+        dimensions: DIMENSIONS,
+        vectorsCount:
+            info?.points_count ?? 0,
+        status:
+            info?.status ?? 'unknown'
+    };
 }
