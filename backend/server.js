@@ -1,113 +1,3 @@
-// // import 'dotenv/config';
-// // import http from 'http';
-// // import app from './app.js';
-// // import { Server } from 'socket.io';
-// // import jwt from 'jsonwebtoken';
-// // import mongoose from 'mongoose';
-// // import projectModel from './models/project.model.js';
-// // // import { generateResult } from './services/ai.service.js';
-
-// // const port = process.env.PORT || 3000;
-
-
-
-// // const server = http.createServer(app);
-// // const io = new Server(server, {
-// //     cors: {
-// //         origin: '*'
-// //     }
-// // });
-
-
-// // io.use(async (socket, next) => {
-
-// //     try {
-
-// //         const token = socket.handshake.auth?.token || socket.handshake.headers.authorization?.split(' ')[ 1 ];
-// //         const projectId = socket.handshake.query.projectId;
-
-// //         if (!mongoose.Types.ObjectId.isValid(projectId)) {
-// //             return next(new Error('Invalid projectId'));
-// //         }
-
-
-// //         socket.project = await projectModel.findById(projectId);
-
-
-// //         if (!token) {
-// //             return next(new Error('Authentication error'))
-// //         }
-
-// //         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-// //         if (!decoded) {
-// //             return next(new Error('Authentication error'))
-// //         }
-
-
-// //         socket.user = decoded;
-
-// //         next();
-
-// //     } catch (error) {
-// //         next(error)
-// //     }
-
-// // })
-
-
-// // io.on('connection', socket => {
-// //     socket.roomId = socket.project._id.toString()
-
-
-// //     console.log('a user connected');
-
-
-
-// //     socket.join(socket.roomId);
-
-// //     socket.on('project-message', async data => {
-
-// //         const message = data.message;
-
-// //         const aiIsPresentInMessage = message.includes('@ai');
-// //         socket.broadcast.to(socket.roomId).emit('project-message', data)
-
-// //         if (aiIsPresentInMessage) {
-
-
-// //             const prompt = message.replace('@ai', '');
-
-// //             const result = await generateResult(prompt);
-
-
-// //             io.to(socket.roomId).emit('project-message', {
-// //                 message: result,
-// //                 sender: {
-// //                     _id: 'ai',
-// //                     email: 'AI'
-// //                 }
-// //             })
-
-
-// //             return
-// //         }
-
-
-// //     })
-
-// //     socket.on('disconnect', () => {
-// //         console.log('user disconnected');
-// //         socket.leave(socket.roomId)
-// //     });
-// // });
-
-
-
-
-// // server.listen(port, () => {
-// //     console.log(`Server is running on port ${port}`);
-// // })
 
 
 
@@ -147,89 +37,52 @@
 // import {
 //     addOnlineUser,
 //     removeOnlineUser,
+//     heartbeatOnlineUser,
 //     getOnlineUsers
 // } from './services/redis.service.js'
 
 // import redisClient
 //     from './config/redis.js'
 
-
-// /*
-// |--------------------------------------------------------------------------
-// | Database
-// |--------------------------------------------------------------------------
-// */
-
 // await connectDB()
 
-
-// /*
-// |--------------------------------------------------------------------------
-// | Redis
-// |--------------------------------------------------------------------------
-// */
-
-// await redisClient.ping()
-
-// console.log('Redis ping successful')
-
-
-// /*
-// |--------------------------------------------------------------------------
-// | Qdrant
-// |--------------------------------------------------------------------------
-// */
+// try {
+//     await redisClient.ping()
+//     console.log('Redis ping successful')
+// } catch (error) {
+//     console.error(
+//         'Redis startup check failed:',
+//         error.message
+//     )
+//     throw error
+// }
 
 // await initVectorStore()
-
-
-// /*
-// |--------------------------------------------------------------------------
-// | HTTP server
-// |--------------------------------------------------------------------------
-// */
 
 // const server =
 //     http.createServer(app)
 
-
-// /*
-// |--------------------------------------------------------------------------
-// | Socket.IO
-// |--------------------------------------------------------------------------
-// */
-
 // const io = new Server(server, {
-//   cors: {
-//     origin: 'https://my-app-frontend-gpo8.onrender.com'||process.env.CLIENT_URL || 'http://localhost:5173',
-//     credentials: true,
-//   },
-// });
-
-
-// /*
-// |--------------------------------------------------------------------------
-// | Socket authentication
-// |--------------------------------------------------------------------------
-// */
+//     cors: {
+//         origin:
+//             process.env.CLIENT_URL ||
+//             'https://my-app-frontend-gpo8.onrender.com',
+//         credentials: true
+//     },
+//     pingInterval: 25000,
+//     pingTimeout: 20000
+// })
 
 // io.use(
 //     async (
 //         socket,
 //         next
 //     ) => {
-
 //         try {
-
 //             const token =
-//                 socket
-//                     .handshake
-//                     .auth
-//                     ?.token
-
+//                 socket.handshake.auth?.token
 
 //             if (!token) {
-
 //                 return next(
 //                     new Error(
 //                         'Authentication required'
@@ -237,20 +90,11 @@
 //                 )
 //             }
 
-
 //             const decoded =
 //                 jwt.verify(
 //                     token,
 //                     process.env.JWT_SECRET
 //                 )
-
-
-//             /*
-//              * Your existing JWT may use
-//              * another field.
-//              *
-//              * If so, change decoded.email.
-//              */
 
 //             const user =
 //                 await userModel.findOne({
@@ -258,9 +102,7 @@
 //                         decoded.email
 //                 })
 
-
 //             if (!user) {
-
 //                 return next(
 //                     new Error(
 //                         'User not found'
@@ -268,14 +110,15 @@
 //                 )
 //             }
 
-
 //             socket.user =
 //                 user
 
-
 //             next()
-
 //         } catch (error) {
+//             console.error(
+//                 'Socket authentication error:',
+//                 error.message
+//             )
 
 //             next(
 //                 new Error(
@@ -286,49 +129,66 @@
 //     }
 // )
 
-
-// /*
-// |--------------------------------------------------------------------------
-// | Socket connections
-// |--------------------------------------------------------------------------
-// */
-
 // io.on(
 //     'connection',
 //     socket => {
-
 //         console.log(
 //             'Socket connected:',
-//             socket.user.email
+//             socket.user.email,
+//             '| socket:',
+//             socket.id
 //         )
-
-
-//         /*
-//         |--------------------------------------------------------------------------
-//         | JOIN PROJECT
-//         |--------------------------------------------------------------------------
-//         */
 
 //         socket.on(
 //             'join-project',
-
 //             async projectId => {
-
 //                 try {
+//                     if (!projectId) {
+//                         return
+//                     }
+
+//                     if (
+//                         socket.projectId &&
+//                         String(
+//                             socket.projectId
+//                         ) !==
+//                         String(projectId)
+//                     ) {
+//                         const oldProjectId =
+//                             socket.projectId
+
+//                         await removeOnlineUser(
+//                             oldProjectId,
+//                             socket.user._id,
+//                             socket.id
+//                         )
+
+//                         socket.leave(
+//                             `project:${oldProjectId}`
+//                         )
+
+//                         const oldOnlineUsers =
+//                             await getOnlineUsers(
+//                                 oldProjectId
+//                             )
+
+//                         io.to(
+//                             `project:${oldProjectId}`
+//                         ).emit(
+//                             'online-users',
+//                             oldOnlineUsers
+//                         )
+//                     }
 
 //                     const project =
-//                         await projectModel
-//                             .findOne({
-//                                 _id:
-//                                     projectId,
-
-//                                 users:
-//                                     socket.user._id
-//                             })
-
+//                         await projectModel.findOne({
+//                             _id:
+//                                 projectId,
+//                             users:
+//                                 socket.user._id
+//                         })
 
 //                     if (!project) {
-
 //                         socket.emit(
 //                             'project-error',
 //                             {
@@ -340,167 +200,206 @@
 //                         return
 //                     }
 
-
 //                     const room =
 //                         `project:${projectId}`
-
 
 //                     socket.join(
 //                         room
 //                     )
 
-
 //                     socket.projectId =
-//                         projectId.toString()
-
-
-//                     /*
-//                      * Redis presence
-//                      */
+//                         String(projectId)
 
 //                     await addOnlineUser(
 //                         projectId,
-
-//                         socket.user._id
+//                         socket.user._id,
+//                         socket.id
 //                     )
-
 
 //                     const onlineUsers =
 //                         await getOnlineUsers(
 //                             projectId
 //                         )
 
-
 //                     io.to(room).emit(
 //                         'online-users',
 //                         onlineUsers
 //                     )
 
-
+//                     console.log(
+//                         'Project joined:',
+//                         socket.user.email,
+//                         '| project:',
+//                         projectId,
+//                         '| socket:',
+//                         socket.id
+//                     )
 //                 } catch (error) {
-
 //                     console.error(
 //                         'Join project error:',
 //                         error
+//                     )
+
+//                     socket.emit(
+//                         'project-error',
+//                         {
+//                             message:
+//                                 'Failed to join project'
+//                         }
 //                     )
 //                 }
 //             }
 //         )
 
+//         socket.on(
+//             'presence-heartbeat',
+//             async projectId => {
+//                 if (
+//                     !socket.projectId ||
+//                     String(projectId) !==
+//                     String(socket.projectId)
+//                 ) {
+//                     return
+//                 }
 
-//         /*
-//         |--------------------------------------------------------------------------
-//         | PROJECT MESSAGE
-//         |--------------------------------------------------------------------------
-//         */
+//                 await heartbeatOnlineUser(
+//                     socket.projectId,
+//                     socket.user._id,
+//                     socket.id
+//                 )
+//             }
+//         )
+
+//         socket.on(
+//             'leave-project',
+//             async projectId => {
+//                 if (
+//                     !socket.projectId ||
+//                     String(projectId) !==
+//                     String(socket.projectId)
+//                 ) {
+//                     return
+//                 }
+
+//                 try {
+//                     const currentProjectId =
+//                         String(
+//                             socket.projectId
+//                         )
+
+//                     await removeOnlineUser(
+//                         currentProjectId,
+//                         socket.user._id,
+//                         socket.id
+//                     )
+
+//                     socket.leave(
+//                         `project:${currentProjectId}`
+//                     )
+
+//                     socket.projectId =
+//                         null
+
+//                     const onlineUsers =
+//                         await getOnlineUsers(
+//                             currentProjectId
+//                         )
+
+//                     io.to(
+//                         `project:${currentProjectId}`
+//                     ).emit(
+//                         'online-users',
+//                         onlineUsers
+//                     )
+//                 } catch (error) {
+//                     console.error(
+//                         'Leave project error:',
+//                         error.message
+//                     )
+//                 }
+//             }
+//         )
 
 //         socket.on(
 //             'project-message',
-
 //             async ({
 //                 projectId,
 //                 message
 //             }) => {
-
 //                 try {
+//                     if (!message?.trim()) {
+//                         return
+//                     }
 
 //                     if (
-//                         !message?.trim()
+//                         !socket.projectId ||
+//                         String(projectId) !==
+//                         String(socket.projectId)
 //                     ) {
+//                         socket.emit(
+//                             'project-error',
+//                             {
+//                                 message:
+//                                     'Join this project before sending messages'
+//                             }
+//                         )
+
 //                         return
 //                     }
-
-
-//                     /*
-//                      * Security:
-//                      * verify project membership.
-//                      */
 
 //                     const project =
-//                         await projectModel
-//                             .findOne({
-//                                 _id:
-//                                     projectId,
-
-//                                 users:
-//                                     socket.user._id
-//                             })
-
+//                         await projectModel.findOne({
+//                             _id:
+//                                 projectId,
+//                             users:
+//                                 socket.user._id
+//                         })
 
 //                     if (!project) {
+//                         socket.emit(
+//                             'project-error',
+//                             {
+//                                 message:
+//                                     'You are not a member of this project'
+//                             }
+//                         )
+
 //                         return
 //                     }
-
 
 //                     const cleanMessage =
 //                         message.trim()
-
 
 //                     const mentionsAI =
 //                         /@ai\b/i.test(
 //                             cleanMessage
 //                         )
 
-
-//                     /*
-//                     |--------------------------------------------------------------------------
-//                     | SAVE HUMAN MESSAGE
-//                     |--------------------------------------------------------------------------
-//                     */
-
 //                     const savedMessage =
 //                         await createMessage({
 //                             projectId,
-
 //                             senderId:
 //                                 socket.user._id,
-
 //                             senderEmail:
 //                                 socket.user.email,
-
 //                             content:
 //                                 cleanMessage,
-
 //                             role:
 //                                 'user',
-
 //                             mentionsAI
 //                         })
-
 
 //                     const room =
 //                         `project:${projectId}`
 
-
-//                     /*
-//                     |--------------------------------------------------------------------------
-//                     | BROADCAST TO EVERYONE
-//                     |--------------------------------------------------------------------------
-//                     */
-
 //                     io.to(room).emit(
 //                         'project-message',
-
 //                         savedMessage
 //                     )
-
-
-//                     /*
-//                     |--------------------------------------------------------------------------
-//                     | Normal message → done
-//                     |--------------------------------------------------------------------------
-//                     */
 
 //                     if (!mentionsAI) {
 //                         return
 //                     }
-
-
-//                     /*
-//                     |--------------------------------------------------------------------------
-//                     | Remove @AI
-//                     |--------------------------------------------------------------------------
-//                     */
 
 //                     const aiQuestion =
 //                         cleanMessage
@@ -510,17 +409,9 @@
 //                             )
 //                             .trim()
 
-
 //                     if (!aiQuestion) {
 //                         return
 //                     }
-
-
-//                     /*
-//                     |--------------------------------------------------------------------------
-//                     | AI THINKING
-//                     |--------------------------------------------------------------------------
-//                     */
 
 //                     io.to(room).emit(
 //                         'ai-status',
@@ -530,58 +421,30 @@
 //                         }
 //                     )
 
-
-//                     /*
-//                     |--------------------------------------------------------------------------
-//                     | AI + MEMORY + RAG
-//                     |--------------------------------------------------------------------------
-//                     */
-
 //                     const aiReply =
 //                         await generateProjectAIReply({
 //                             projectId,
-
 //                             userMessage:
 //                                 aiQuestion
 //                         })
 
-
-//                     /*
-//                     |--------------------------------------------------------------------------
-//                     | SAVE AI MESSAGE
-//                     |--------------------------------------------------------------------------
-//                     */
-
 //                     const aiMessage =
 //                         await createMessage({
 //                             projectId,
-
 //                             senderEmail:
 //                                 'AI Assistant',
-
 //                             content:
 //                                 aiReply,
-
 //                             role:
 //                                 'assistant',
-
 //                             mentionsAI:
 //                                 false
 //                         })
 
-
-//                     /*
-//                     |--------------------------------------------------------------------------
-//                     | BROADCAST AI MESSAGE
-//                     |--------------------------------------------------------------------------
-//                     */
-
 //                     io.to(room).emit(
 //                         'project-message',
-
 //                         aiMessage
 //                     )
-
 
 //                     io.to(room).emit(
 //                         'ai-status',
@@ -591,32 +454,19 @@
 //                         }
 //                     )
 
-
-//                     /*
-//                     |--------------------------------------------------------------------------
-//                     | Update project memory
-//                     | in background.
-//                     |--------------------------------------------------------------------------
-//                     */
-
 //                     createProjectMemory(
 //                         projectId
 //                     ).catch(error => {
-
 //                         console.error(
 //                             'Memory update failed:',
 //                             error.message
 //                         )
 //                     })
-
-
 //                 } catch (error) {
-
 //                     console.error(
 //                         'Project message error:',
 //                         error
 //                     )
-
 
 //                     io.to(
 //                         `project:${projectId}`
@@ -628,11 +478,11 @@
 //                         }
 //                     )
 
-
 //                     socket.emit(
 //                         'project-error',
 //                         {
 //                             message:
+//                                 error?.message ||
 //                                 'Failed to process message'
 //                         }
 //                     )
@@ -640,920 +490,1294 @@
 //             }
 //         )
 
-
-//         /*
-//         |--------------------------------------------------------------------------
-//         | DISCONNECT
-//         |--------------------------------------------------------------------------
-//         */
-
 //         socket.on(
 //             'disconnect',
-
-//             async () => {
-
+//             async reason => {
 //                 console.log(
 //                     'Socket disconnected:',
-//                     socket.user.email
+//                     socket.user.email,
+//                     '| socket:',
+//                     socket.id,
+//                     '| reason:',
+//                     reason
 //                 )
 
-
-//                 if (
-//                     !socket.projectId
-//                 ) {
+//                 if (!socket.projectId) {
 //                     return
 //                 }
 
-
-//                 await removeOnlineUser(
-//                     socket.projectId,
-
-//                     socket.user._id
-//                 )
-
-
-//                 const onlineUsers =
-//                     await getOnlineUsers(
+//                 const projectId =
+//                     String(
 //                         socket.projectId
 //                     )
 
+//                 try {
+//                     await removeOnlineUser(
+//                         projectId,
+//                         socket.user._id,
+//                         socket.id
+//                     )
 
-//                 io.to(
-//                     `project:${socket.projectId}`
-//                 ).emit(
-//                     'online-users',
+//                     const onlineUsers =
+//                         await getOnlineUsers(
+//                             projectId
+//                         )
 
-//                     onlineUsers
-//                 )
+//                     io.to(
+//                         `project:${projectId}`
+//                     ).emit(
+//                         'online-users',
+//                         onlineUsers
+//                     )
+//                 } catch (error) {
+//                     console.error(
+//                         'Disconnect presence cleanup error:',
+//                         error.message
+//                     )
+//                 }
 //             }
 //         )
 //     }
 // )
 
-
-// /*
-// |--------------------------------------------------------------------------
-// | Start server
-// |--------------------------------------------------------------------------
-// */
-
-// // const PORT =
-// //     process.env.PORT || 5000
-
-
-// // server.listen(
-// //     PORT,
-
-// //     () => {
-
-// //         console.log(
-// //             `Server running on port ${PORT}`
-// //         )
-// //     }
-// // )
-
 // if (!process.env.VERCEL) {
-//   const PORT = process.env.PORT || 3000
-//   server.listen(PORT, () => {
-//     console.log(`🚀 Server running locally on http://localhost:${PORT}`)
-//   })
+//     const PORT =
+//         process.env.PORT || 3000
+
+//     server.listen(
+//         PORT,
+//         () => {
+//             console.log(
+//                 `🚀 Server running locally on http://localhost:${PORT}`
+//             )
+//         }
+//     )
 // }
 
-
 import 'dotenv/config'
-
 import http from 'http'
 import jwt from 'jsonwebtoken'
-
-import {
-    Server
-} from 'socket.io'
-
+import {Server} from 'socket.io'
 import app from './app.js'
-
-import connectDB
-    from './db/db.js'
-
-import userModel
-    from './models/user.model.js'
-
-import projectModel
-    from './models/project.model.js'
-
-import {
-    createMessage
-} from './services/message.service.js'
-
-import {
-    generateProjectAIReply,
-    createProjectMemory
-} from './services/ai.service.js'
-
-import {
-    initVectorStore
-} from './services/vector.service.js'
-
-import {
-    addOnlineUser,
-    removeOnlineUser,
-    heartbeatOnlineUser,
-    getOnlineUsers
-} from './services/redis.service.js'
-
-import redisClient
-    from './config/redis.js'
-
-
-/*
-|--------------------------------------------------------------------------
-| Database
-|--------------------------------------------------------------------------
-*/
+import connectDB from './db/db.js'
+import userModel from './models/user.model.js'
+import projectModel from './models/project.model.js'
+import {createMessage} from './services/message.service.js'
+import {generateProjectAIReply,createProjectMemory} from './services/ai.service.js'
+import {initVectorStore,deleteProjectVectors} from './services/vector.service.js'
+import {addOnlineUser,removeOnlineUser,heartbeatOnlineUser,getOnlineUsers} from './services/redis.service.js'
+import redisClient from './config/redis.js'
 
 await connectDB()
 
-
-/*
-|--------------------------------------------------------------------------
-| Redis
-|--------------------------------------------------------------------------
-*/
-
-await redisClient.ping()
-
-console.log('Redis ping successful')
-
-
-/*
-|--------------------------------------------------------------------------
-| Qdrant
-|--------------------------------------------------------------------------
-*/
+try{
+    await redisClient.ping()
+    console.log('Redis ping successful')
+}catch(error){
+    console.error('Redis startup check failed:',error.message)
+    throw error
+}
 
 await initVectorStore()
 
+const server=http.createServer(app)
 
-/*
-|--------------------------------------------------------------------------
-| HTTP server
-|--------------------------------------------------------------------------
-*/
-
-const server =
-    http.createServer(app)
-
-
-/*
-|--------------------------------------------------------------------------
-| Socket.IO
-|--------------------------------------------------------------------------
-*/
-
-const io = new Server(server, {
-    cors: {
+const io=new Server(server,{
+    cors:{
         origin:
-            process.env.CLIENT_URL ||
-            'https://my-app-frontend-gpo8.onrender.com',
-
-        credentials: true
+            process.env.CLIENT_URL||
+            process.env.FRONTEND_URL||
+            'http://localhost:5173',
+        credentials:true
     },
-
-    /*
-     * Keep Socket.IO connection alive.
-     */
-    pingInterval: 25000,
-    pingTimeout: 20000
+    pingInterval:25000,
+    pingTimeout:20000
 })
 
+app.set('io',io)
 
-/*
-|--------------------------------------------------------------------------
-| Socket authentication
-|--------------------------------------------------------------------------
-*/
+const documentLockKey=projectId=>
+    `project:document:lock:${projectId}`
 
-io.use(
-    async (
-        socket,
-        next
-    ) => {
+const documentOperationKey=projectId=>
+    `project:document:operation:${projectId}`
 
-        try {
+const getDocumentOperation=async projectId=>{
+    try{
+        const raw=await redisClient.get(
+            documentOperationKey(projectId)
+        )
 
-            const token =
-                socket
-                    .handshake
-                    .auth
-                    ?.token
-
-
-            if (!token) {
-
-                return next(
-                    new Error(
-                        'Authentication required'
-                    )
-                )
+        if(!raw){
+            return{
+                status:'idle',
+                fileName:'',
+                userId:'',
+                socketId:''
             }
+        }
 
+        return JSON.parse(raw)
+    }catch(error){
+        console.error(
+            'Document operation read error:',
+            error.message
+        )
 
-            const decoded =
-                jwt.verify(
-                    token,
-                    process.env.JWT_SECRET
-                )
+        return{
+            status:'idle',
+            fileName:'',
+            userId:'',
+            socketId:''
+        }
+    }
+}
 
+const releaseDocumentLock=async projectId=>{
+    try{
+        await redisClient.del(
+            documentLockKey(projectId)
+        )
 
-            const user =
-                await userModel.findOne({
-                    email:
-                        decoded.email
-                })
+        await redisClient.del(
+            documentOperationKey(projectId)
+        )
+    }catch(error){
+        console.error(
+            'Document lock release error:',
+            error.message
+        )
+    }
+}
 
+const emitDocumentState=async projectId=>{
+    try{
+        const project=
+            await projectModel.findOne({
+                _id:projectId
+            }).select('ragDocument')
 
-            if (!user) {
+        if(!project)return
 
-                return next(
-                    new Error(
-                        'User not found'
-                    )
-                )
+        const operation=
+            await getDocumentOperation(projectId)
+
+        io.to(
+            `project:${projectId}`
+        ).emit(
+            'project-document-state',
+            {
+                projectId:String(projectId),
+                document:
+                    project.ragDocument||
+                    null,
+                operation
             }
+        )
+    }catch(error){
+        console.error(
+            'Document state emit error:',
+            error.message
+        )
+    }
+}
 
-
-            socket.user =
-                user
-
-
-            next()
-
-        } catch (error) {
-
-            console.error(
-                'Socket authentication error:',
-                error.message
+const emitProjectMembers=async projectId=>{
+    try{
+        const project=
+            await projectModel.findById(
+                projectId
             )
+            .populate(
+                'users',
+                '_id email'
+            )
+            .select('users')
 
-            next(
+        if(!project)return
+
+        io.to(
+            `project:${projectId}`
+        ).emit(
+            'project-members-updated',
+            {
+                projectId:String(projectId),
+                users:project.users||[]
+            }
+        )
+    }catch(error){
+        console.error(
+            'Project members emit error:',
+            error.message
+        )
+    }
+}
+
+io.use(async(socket,next)=>{
+    try{
+        const token=
+            socket.handshake.auth?.token
+
+        if(!token){
+            return next(
                 new Error(
-                    'Invalid authentication token'
+                    'Authentication required'
                 )
             )
         }
-    }
-)
 
-
-/*
-|--------------------------------------------------------------------------
-| Socket connections
-|--------------------------------------------------------------------------
-*/
-
-io.on(
-    'connection',
-    socket => {
-
-        console.log(
-            'Socket connected:',
-            socket.user.email,
-            '| socket:',
-            socket.id
-        )
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | JOIN PROJECT
-        |--------------------------------------------------------------------------
-        */
-
-        socket.on(
-            'join-project',
-
-            async projectId => {
-
-                try {
-
-                    if (!projectId) {
-                        return
-                    }
-
-
-                    /*
-                     * If this socket was already inside
-                     * another project, remove old presence.
-                     */
-
-                    if (
-                        socket.projectId &&
-                        String(socket.projectId) !== String(projectId)
-                    ) {
-
-                        const oldProjectId =
-                            socket.projectId
-
-                        await removeOnlineUser(
-                            oldProjectId,
-                            socket.user._id,
-                            socket.id
-                        )
-
-                        socket.leave(
-                            `project:${oldProjectId}`
-                        )
-
-                        const oldOnlineUsers =
-                            await getOnlineUsers(
-                                oldProjectId
-                            )
-
-                        io.to(
-                            `project:${oldProjectId}`
-                        ).emit(
-                            'online-users',
-                            oldOnlineUsers
-                        )
-                    }
-
-
-                    /*
-                     * Verify project membership.
-                     */
-
-                    const project =
-                        await projectModel.findOne({
-                            _id:
-                                projectId,
-
-                            users:
-                                socket.user._id
-                        })
-
-
-                    if (!project) {
-
-                        socket.emit(
-                            'project-error',
-                            {
-                                message:
-                                    'You are not a member of this project'
-                            }
-                        )
-
-                        return
-                    }
-
-
-                    const room =
-                        `project:${projectId}`
-
-
-                    /*
-                     * Join Socket.IO room.
-                     */
-
-                    socket.join(
-                        room
-                    )
-
-
-                    socket.projectId =
-                        String(projectId)
-
-
-                    /*
-                     * Add this specific socket
-                     * to Redis presence.
-                     *
-                     * Multiple devices/tabs are supported.
-                     */
-
-                    await addOnlineUser(
-                        projectId,
-                        socket.user._id,
-                        socket.id
-                    )
-
-
-                    /*
-                     * Send current online users
-                     * to everyone in the project.
-                     */
-
-                    const onlineUsers =
-                        await getOnlineUsers(
-                            projectId
-                        )
-
-
-                    io.to(room).emit(
-                        'online-users',
-                        onlineUsers
-                    )
-
-
-                    console.log(
-                        'Project joined:',
-                        socket.user.email,
-                        '| project:',
-                        projectId,
-                        '| socket:',
-                        socket.id
-                    )
-
-                } catch (error) {
-
-                    console.error(
-                        'Join project error:',
-                        error
-                    )
-
-                    socket.emit(
-                        'project-error',
-                        {
-                            message:
-                                'Failed to join project'
-                        }
-                    )
-                }
-            }
-        )
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | PRESENCE HEARTBEAT
-        |--------------------------------------------------------------------------
-        |
-        | Frontend sends this every 15 seconds.
-        |
-        | Redis presence TTL = 45 seconds.
-        |
-        */
-
-        socket.on(
-            'presence-heartbeat',
-
-            async projectId => {
-
-                if (
-                    !socket.projectId ||
-                    String(projectId) !==
-                        String(socket.projectId)
-                ) {
-                    return
-                }
-
-
-                try {
-
-                    await heartbeatOnlineUser(
-                        socket.projectId,
-                        socket.user._id,
-                        socket.id
-                    )
-
-                } catch (error) {
-
-                    console.error(
-                        'Presence heartbeat error:',
-                        error.message
-                    )
-                }
-            }
-        )
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | LEAVE PROJECT
-        |--------------------------------------------------------------------------
-        */
-
-        socket.on(
-            'leave-project',
-
-            async projectId => {
-
-                if (
-                    !socket.projectId ||
-                    String(projectId) !==
-                        String(socket.projectId)
-                ) {
-                    return
-                }
-
-
-                try {
-
-                    const currentProjectId =
-                        String(socket.projectId)
-
-
-                    /*
-                     * Remove only this socket.
-                     *
-                     * If another device/tab exists,
-                     * the user stays online.
-                     */
-
-                    await removeOnlineUser(
-                        currentProjectId,
-                        socket.user._id,
-                        socket.id
-                    )
-
-
-                    socket.leave(
-                        `project:${currentProjectId}`
-                    )
-
-
-                    socket.projectId =
-                        null
-
-
-                    const onlineUsers =
-                        await getOnlineUsers(
-                            currentProjectId
-                        )
-
-
-                    io.to(
-                        `project:${currentProjectId}`
-                    ).emit(
-                        'online-users',
-                        onlineUsers
-                    )
-
-                } catch (error) {
-
-                    console.error(
-                        'Leave project error:',
-                        error.message
-                    )
-                }
-            }
-        )
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | PROJECT MESSAGE
-        |--------------------------------------------------------------------------
-        */
-
-        socket.on(
-            'project-message',
-
-            async ({
-                projectId,
-                message
-            }) => {
-
-                try {
-
-                    if (
-                        !message?.trim()
-                    ) {
-                        return
-                    }
-
-
-                    /*
-                     * Security:
-                     * Verify that the sender belongs
-                     * to this project.
-                     */
-
-                    const project =
-                        await projectModel.findOne({
-                            _id:
-                                projectId,
-
-                            users:
-                                socket.user._id
-                        })
-
-
-                    if (!project) {
-
-                        socket.emit(
-                            'project-error',
-                            {
-                                message:
-                                    'You are not a member of this project'
-                            }
-                        )
-
-                        return
-                    }
-
-
-                    const cleanMessage =
-                        message.trim()
-
-
-                    const mentionsAI =
-                        /@ai\b/i.test(
-                            cleanMessage
-                        )
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SAVE HUMAN MESSAGE
-                    |--------------------------------------------------------------------------
-                    */
-
-                    const savedMessage =
-                        await createMessage({
-                            projectId,
-
-                            senderId:
-                                socket.user._id,
-
-                            senderEmail:
-                                socket.user.email,
-
-                            content:
-                                cleanMessage,
-
-                            role:
-                                'user',
-
-                            mentionsAI
-                        })
-
-
-                    const room =
-                        `project:${projectId}`
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | BROADCAST HUMAN MESSAGE
-                    |--------------------------------------------------------------------------
-                    */
-
-                    io.to(room).emit(
-                        'project-message',
-                        savedMessage
-                    )
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Normal message
-                    |--------------------------------------------------------------------------
-                    */
-
-                    if (!mentionsAI) {
-                        return
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Remove @AI
-                    |--------------------------------------------------------------------------
-                    */
-
-                    const aiQuestion =
-                        cleanMessage
-                            .replace(
-                                /@ai\b/i,
-                                ''
-                            )
-                            .trim()
-
-
-                    if (!aiQuestion) {
-                        return
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | AI THINKING
-                    |--------------------------------------------------------------------------
-                    */
-
-                    io.to(room).emit(
-                        'ai-status',
-                        {
-                            status:
-                                'thinking'
-                        }
-                    )
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | AI + RAG
-                    |--------------------------------------------------------------------------
-                    */
-
-                    const aiReply =
-                        await generateProjectAIReply({
-                            projectId,
-
-                            userMessage:
-                                aiQuestion
-                        })
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SAVE AI MESSAGE
-                    |--------------------------------------------------------------------------
-                    */
-
-                    const aiMessage =
-                        await createMessage({
-                            projectId,
-
-                            senderEmail:
-                                'AI Assistant',
-
-                            content:
-                                aiReply,
-
-                            role:
-                                'assistant',
-
-                            mentionsAI:
-                                false
-                        })
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | BROADCAST AI MESSAGE
-                    |--------------------------------------------------------------------------
-                    */
-
-                    io.to(room).emit(
-                        'project-message',
-                        aiMessage
-                    )
-
-
-                    io.to(room).emit(
-                        'ai-status',
-                        {
-                            status:
-                                'idle'
-                        }
-                    )
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Update project memory
-                    |--------------------------------------------------------------------------
-                    */
-
-                    createProjectMemory(
-                        projectId
-                    ).catch(error => {
-
-                        console.error(
-                            'Memory update failed:',
-                            error.message
-                        )
-                    })
-
-                } catch (error) {
-
-                    console.error(
-                        'Project message error:',
-                        error
-                    )
-
-
-                    io.to(
-                        `project:${projectId}`
-                    ).emit(
-                        'ai-status',
-                        {
-                            status:
-                                'idle'
-                        }
-                    )
-
-
-                    socket.emit(
-                        'project-error',
-                        {
-                            message:
-                                'Failed to process message'
-                        }
-                    )
-                }
-            }
-        )
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | DISCONNECT
-        |--------------------------------------------------------------------------
-        */
-
-        socket.on(
-            'disconnect',
-
-            async reason => {
-
-                console.log(
-                    'Socket disconnected:',
-                    socket.user.email,
-                    '| socket:',
-                    socket.id,
-                    '| reason:',
-                    reason
+        const decoded=
+            jwt.verify(
+                token,
+                process.env.JWT_SECRET
+            )
+
+        const user=
+            await userModel.findOne({
+                email:decoded.email
+            })
+
+        if(!user){
+            return next(
+                new Error(
+                    'User not found'
                 )
+            )
+        }
 
+        socket.user=user
 
-                if (!socket.projectId) {
-                    return
-                }
+        next()
+    }catch(error){
+        console.error(
+            'Socket authentication error:',
+            error.message
+        )
 
+        next(
+            new Error(
+                'Invalid authentication token'
+            )
+        )
+    }
+})
 
-                const projectId =
+io.on('connection',socket=>{
+    console.log(
+        'Socket connected:',
+        socket.user.email,
+        '| socket:',
+        socket.id
+    )
+
+    socket.on('join-project',async projectId=>{
+        try{
+            if(!projectId)return
+
+            if(
+                socket.projectId&&
+                String(socket.projectId)!==
+                String(projectId)
+            ){
+                const oldProjectId=
                     String(socket.projectId)
 
+                await removeOnlineUser(
+                    oldProjectId,
+                    socket.user._id,
+                    socket.id
+                )
 
-                try {
+                socket.leave(
+                    `project:${oldProjectId}`
+                )
 
-                    /*
-                     * Remove only this socket.
-                     *
-                     * Redis service checks whether
-                     * another socket for the same
-                     * user still exists.
-                     */
-
-                    await removeOnlineUser(
-                        projectId,
-                        socket.user._id,
-                        socket.id
+                const oldOnlineUsers=
+                    await getOnlineUsers(
+                        oldProjectId
                     )
 
+                io.to(
+                    `project:${oldProjectId}`
+                ).emit(
+                    'online-users',
+                    oldOnlineUsers
+                )
+            }
 
-                    const onlineUsers =
-                        await getOnlineUsers(
-                            projectId
-                        )
+            const project=
+                await projectModel.findOne({
+                    _id:projectId,
+                    users:socket.user._id
+                })
 
+            if(!project){
+                socket.emit(
+                    'project-error',
+                    {
+                        message:
+                            'You are not a member of this project'
+                    }
+                )
+
+                return
+            }
+
+            const room=
+                `project:${projectId}`
+
+            socket.join(room)
+
+            socket.projectId=
+                String(projectId)
+
+            await addOnlineUser(
+                projectId,
+                socket.user._id,
+                socket.id
+            )
+
+            const onlineUsers=
+                await getOnlineUsers(
+                    projectId
+                )
+
+            io.to(room).emit(
+                'online-users',
+                onlineUsers
+            )
+
+            await emitDocumentState(
+                projectId
+            )
+
+            await emitProjectMembers(
+                projectId
+            )
+
+            console.log(
+                'Project joined:',
+                socket.user.email,
+                '| project:',
+                projectId,
+                '| socket:',
+                socket.id
+            )
+        }catch(error){
+            console.error(
+                'Join project error:',
+                error.message
+            )
+        }
+    })
+
+    socket.on(
+        'request-project-members',
+        async projectId=>{
+            try{
+                if(
+                    !projectId||
+                    !socket.projectId||
+                    String(projectId)!==
+                    String(socket.projectId)
+                ){
+                    return
+                }
+
+                const project=
+                    await projectModel.findOne({
+                        _id:projectId,
+                        users:socket.user._id
+                    })
+
+                if(!project)return
+
+                await emitProjectMembers(
+                    projectId
+                )
+            }catch(error){
+                console.error(
+                    'Request project members error:',
+                    error.message
+                )
+            }
+        }
+    )
+
+    socket.on(
+        'project-members-updated',
+        async data=>{
+            try{
+                const projectId=
+                    data?.projectId
+
+                if(
+                    !projectId||
+                    !socket.projectId||
+                    String(projectId)!==
+                    String(socket.projectId)
+                ){
+                    return
+                }
+
+                const project=
+                    await projectModel.findOne({
+                        _id:projectId,
+                        users:socket.user._id
+                    })
+
+                if(!project)return
+
+                await emitProjectMembers(
+                    projectId
+                )
+            }catch(error){
+                console.error(
+                    'Project members update error:',
+                    error.message
+                )
+            }
+        }
+    )
+
+    socket.on(
+        'request-project-document',
+        async projectId=>{
+            try{
+                if(
+                    !projectId||
+                    !socket.projectId||
+                    String(projectId)!==
+                    String(socket.projectId)
+                ){
+                    return
+                }
+
+                const project=
+                    await projectModel.findOne({
+                        _id:projectId,
+                        users:socket.user._id
+                    }).select('ragDocument')
+
+                if(!project)return
+
+                const operation=
+                    await getDocumentOperation(
+                        projectId
+                    )
+
+                socket.emit(
+                    'project-document-state',
+                    {
+                        projectId:String(projectId),
+                        document:
+                            project.ragDocument||
+                            null,
+                        operation
+                    }
+                )
+            }catch(error){
+                console.error(
+                    'Request document error:',
+                    error.message
+                )
+            }
+        }
+    )
+
+    socket.on(
+        'project-document-upload-started',
+        async(data,ack)=>{
+            try{
+                const projectId=
+                    data?.projectId
+
+                if(
+                    !projectId||
+                    !socket.projectId||
+                    String(projectId)!==
+                    String(socket.projectId)
+                ){
+                    if(typeof ack==='function'){
+                        ack({
+                            ok:false,
+                            message:
+                                'Project connection is not ready.'
+                        })
+                    }
+
+                    return
+                }
+
+                const project=
+                    await projectModel.findOne({
+                        _id:projectId,
+                        users:socket.user._id
+                    }).select('_id')
+
+                if(!project){
+                    if(typeof ack==='function'){
+                        ack({
+                            ok:false,
+                            message:
+                                'You are not a member of this project.'
+                        })
+                    }
+
+                    return
+                }
+
+                const existing=
+                    await getDocumentOperation(
+                        projectId
+                    )
+
+                if(
+                    existing.status&&
+                    existing.status!=='idle'
+                ){
+                    if(typeof ack==='function'){
+                        ack({
+                            ok:false,
+                            message:
+                                existing.status==='removing'
+                                    ?'Another collaborator is removing the PDF.'
+                                    :'Another collaborator is currently processing the PDF.'
+                        })
+                    }
+
+                    return
+                }
+
+                const lockKey=
+                    documentLockKey(projectId)
+
+                const operationKey=
+                    documentOperationKey(projectId)
+
+                const lockValue=
+                    `${socket.id}:${String(socket.user._id)}`
+
+                const acquired=
+                    await redisClient.set(
+                        lockKey,
+                        lockValue,
+                        {
+                            NX:true,
+                            EX:1800
+                        }
+                    )
+
+                if(!acquired){
+                    if(typeof ack==='function'){
+                        ack({
+                            ok:false,
+                            message:
+                                'Another collaborator is currently changing the PDF.'
+                        })
+                    }
+
+                    return
+                }
+
+                const operation={
+                    status:
+                        data?.status||
+                        'uploading',
+                    fileName:
+                        data?.fileName||
+                        'Project PDF',
+                    userId:
+                        String(socket.user._id),
+                    socketId:socket.id
+                }
+
+                await redisClient.set(
+                    operationKey,
+                    JSON.stringify(operation),
+                    {
+                        EX:1800
+                    }
+                )
+
+                io.to(
+                    `project:${projectId}`
+                ).emit(
+                    'project-document-upload-started',
+                    {
+                        projectId:
+                            String(projectId),
+                        fileName:
+                            operation.fileName,
+                        status:
+                            operation.status,
+                        userId:
+                            operation.userId
+                    }
+                )
+
+                if(typeof ack==='function'){
+                    ack({ok:true})
+                }
+            }catch(error){
+                console.error(
+                    'Project document upload-start error:',
+                    error.message
+                )
+
+                if(typeof ack==='function'){
+                    ack({
+                        ok:false,
+                        message:
+                            'Failed to start PDF operation.'
+                    })
+                }
+            }
+        }
+    )
+
+    socket.on(
+        'project-document-updated',
+        async data=>{
+            try{
+                const projectId=
+                    data?.projectId
+
+                if(
+                    !projectId||
+                    !socket.projectId||
+                    String(projectId)!==
+                    String(socket.projectId)
+                ){
+                    return
+                }
+
+                const project=
+                    await projectModel.findOne({
+                        _id:projectId,
+                        users:socket.user._id
+                    }).select('_id')
+
+                if(!project)return
+
+                await releaseDocumentLock(
+                    projectId
+                )
+
+                await emitDocumentState(
+                    projectId
+                )
+            }catch(error){
+                console.error(
+                    'Project document update error:',
+                    error.message
+                )
+            }
+        }
+    )
+
+    socket.on(
+        'project-document-operation-failed',
+        async data=>{
+            try{
+                const projectId=
+                    data?.projectId
+
+                if(!projectId)return
+
+                const operation=
+                    await getDocumentOperation(
+                        projectId
+                    )
+
+                if(
+                    operation.socketId===
+                    socket.id
+                ){
+                    await releaseDocumentLock(
+                        projectId
+                    )
+                }
+
+                io.to(
+                    `project:${projectId}`
+                ).emit(
+                    'project-document-operation-failed',
+                    {
+                        projectId:
+                            String(projectId),
+                        message:
+                            data?.message||
+                            'PDF operation failed.'
+                    }
+                )
+            }catch(error){
+                console.error(
+                    'PDF operation failure error:',
+                    error.message
+                )
+            }
+        }
+    )
+
+    socket.on(
+        'project-document-remove',
+        async(data,ack)=>{
+            const projectId=
+                data?.projectId
+
+            try{
+                if(
+                    !projectId||
+                    !socket.projectId||
+                    String(projectId)!==
+                    String(socket.projectId)
+                ){
+                    if(typeof ack==='function'){
+                        ack({
+                            ok:false,
+                            message:
+                                'Project connection is not ready.'
+                        })
+                    }
+
+                    return
+                }
+
+                const project=
+                    await projectModel.findOne({
+                        _id:projectId,
+                        users:socket.user._id
+                    }).select('ragDocument')
+
+                if(!project){
+                    if(typeof ack==='function'){
+                        ack({
+                            ok:false,
+                            message:
+                                'You are not a member of this project.'
+                        })
+                    }
+
+                    return
+                }
+
+                if(!project.ragDocument){
+                    await releaseDocumentLock(
+                        projectId
+                    )
 
                     io.to(
                         `project:${projectId}`
                     ).emit(
-                        'online-users',
-                        onlineUsers
+                        'project-document-removed',
+                        {
+                            projectId:
+                                String(projectId),
+                            document:null,
+                            message:
+                                'No PDF is currently uploaded.'
+                        }
                     )
 
+                    if(typeof ack==='function'){
+                        ack({
+                            ok:true
+                        })
+                    }
 
-                    console.log(
-                        'Presence updated after disconnect:',
-                        socket.user.email,
-                        onlineUsers
+                    return
+                }
+
+                const existing=
+                    await getDocumentOperation(
+                        projectId
                     )
 
-                } catch (error) {
+                if(
+                    existing.status&&
+                    existing.status!=='idle'
+                ){
+                    if(typeof ack==='function'){
+                        ack({
+                            ok:false,
+                            message:
+                                existing.status==='removing'
+                                    ?'The PDF is already being removed.'
+                                    :'Another collaborator is currently processing the PDF.'
+                        })
+                    }
 
+                    return
+                }
+
+                const lockKey=
+                    documentLockKey(projectId)
+
+                const operationKey=
+                    documentOperationKey(projectId)
+
+                const lockValue=
+                    `${socket.id}:${String(socket.user._id)}`
+
+                const acquired=
+                    await redisClient.set(
+                        lockKey,
+                        lockValue,
+                        {
+                            NX:true,
+                            EX:1800
+                        }
+                    )
+
+                if(!acquired){
+                    if(typeof ack==='function'){
+                        ack({
+                            ok:false,
+                            message:
+                                'Another collaborator is currently changing the PDF.'
+                        })
+                    }
+
+                    return
+                }
+
+                const fileName=
+                    project.ragDocument.fileName||
+                    project.ragDocument.filename||
+                    'Project PDF'
+
+                const operation={
+                    status:'removing',
+                    fileName,
+                    userId:
+                        String(socket.user._id),
+                    socketId:
+                        socket.id
+                }
+
+                await redisClient.set(
+                    operationKey,
+                    JSON.stringify(operation),
+                    {
+                        EX:1800
+                    }
+                )
+
+                io.to(
+                    `project:${projectId}`
+                ).emit(
+                    'project-document-remove-started',
+                    {
+                        projectId:
+                            String(projectId),
+                        fileName,
+                        status:'removing',
+                        userId:
+                            String(socket.user._id)
+                    }
+                )
+
+                try{
+                    await deleteProjectVectors(
+                        String(projectId)
+                    )
+                }catch(vectorError){
                     console.error(
-                        'Disconnect presence cleanup error:',
-                        error.message
+                        'Qdrant PDF deletion error:',
+                        vectorError.message
+                    )
+
+                    await releaseDocumentLock(
+                        projectId
+                    )
+
+                    io.to(
+                        `project:${projectId}`
+                    ).emit(
+                        'project-document-operation-failed',
+                        {
+                            projectId:
+                                String(projectId),
+                            message:
+                                'Failed to remove PDF knowledge.'
+                        }
+                    )
+
+                    if(typeof ack==='function'){
+                        ack({
+                            ok:false,
+                            message:
+                                'Failed to remove PDF knowledge.'
+                        })
+                    }
+
+                    return
+                }
+
+                project.ragDocument=null
+
+                await project.save()
+
+                await releaseDocumentLock(
+                    projectId
+                )
+
+                io.to(
+                    `project:${projectId}`
+                ).emit(
+                    'project-document-removed',
+                    {
+                        projectId:
+                            String(projectId),
+                        document:null,
+                        message:
+                            'PDF removed from project knowledge.'
+                    }
+                )
+
+                if(typeof ack==='function'){
+                    ack({
+                        ok:true
+                    })
+                }
+
+                console.log(
+                    'Project PDF removed:',
+                    projectId,
+                    '| by:',
+                    socket.user.email
+                )
+            }catch(error){
+                console.error(
+                    'Project document remove error:',
+                    error.message
+                )
+
+                if(projectId){
+                    await releaseDocumentLock(
+                        projectId
+                    )
+
+                    io.to(
+                        `project:${projectId}`
+                    ).emit(
+                        'project-document-operation-failed',
+                        {
+                            projectId:
+                                String(projectId),
+                            message:
+                                'Failed to remove the PDF.'
+                        }
                     )
                 }
+
+                if(typeof ack==='function'){
+                    ack({
+                        ok:false,
+                        message:
+                            'Failed to remove the PDF.'
+                    })
+                }
             }
-        )
-    }
-)
+        }
+    )
 
+    socket.on(
+        'presence-heartbeat',
+        async projectId=>{
+            try{
+                if(
+                    !socket.projectId||
+                    String(projectId)!==
+                    String(socket.projectId)
+                ){
+                    return
+                }
 
-/*
-|--------------------------------------------------------------------------
-| Start server
-|--------------------------------------------------------------------------
-*/
+                await heartbeatOnlineUser(
+                    projectId,
+                    socket.user._id,
+                    socket.id
+                )
 
-if (!process.env.VERCEL) {
+                const onlineUsers=
+                    await getOnlineUsers(
+                        projectId
+                    )
 
-    const PORT =
-        process.env.PORT || 3000
+                io.to(
+                    `project:${projectId}`
+                ).emit(
+                    'online-users',
+                    onlineUsers
+                )
+            }catch(error){
+                console.error(
+                    'Presence heartbeat error:',
+                    error.message
+                )
+            }
+        }
+    )
 
+    socket.on(
+        'project-message',
+        async({
+            projectId,
+            message
+        })=>{
+            try{
+                if(!message?.trim())return
+
+                if(
+                    !socket.projectId||
+                    String(projectId)!==
+                    String(socket.projectId)
+                ){
+                    return
+                }
+
+                const project=
+                    await projectModel.findOne({
+                        _id:projectId,
+                        users:socket.user._id
+                    })
+
+                if(!project)return
+
+                const cleanMessage=
+                    message.trim()
+
+                const mentionsAI=
+                    /@ai\b/i.test(
+                        cleanMessage
+                    )
+
+                const savedMessage=
+                    await createMessage({
+                        projectId,
+                        senderId:
+                            socket.user._id,
+                        senderEmail:
+                            socket.user.email,
+                        content:
+                            cleanMessage,
+                        role:'user',
+                        mentionsAI
+                    })
+
+                const room=
+                    `project:${projectId}`
+
+                io.to(room).emit(
+                    'project-message',
+                    savedMessage
+                )
+
+                if(!mentionsAI)return
+
+                const aiQuestion=
+                    cleanMessage
+                        .replace(
+                            /@ai\b/i,
+                            ''
+                        )
+                        .trim()
+
+                if(!aiQuestion)return
+
+                io.to(room).emit(
+                    'ai-status',
+                    {
+                        status:'thinking'
+                    }
+                )
+
+                const aiReply=
+                    await generateProjectAIReply({
+                        projectId,
+                        userMessage:
+                            aiQuestion
+                    })
+
+                const aiMessage=
+                    await createMessage({
+                        projectId,
+                        senderEmail:
+                            'AI Assistant',
+                        content:
+                            aiReply,
+                        role:'assistant',
+                        mentionsAI:false
+                    })
+
+                io.to(room).emit(
+                    'project-message',
+                    aiMessage
+                )
+
+                io.to(room).emit(
+                    'ai-status',
+                    {
+                        status:'idle'
+                    }
+                )
+
+                createProjectMemory(
+                    projectId
+                ).catch(error=>{
+                    console.error(
+                        'Memory update failed:',
+                        error.message
+                    )
+                })
+            }catch(error){
+                console.error(
+                    'Project message error:',
+                    error.message
+                )
+
+                io.to(
+                    `project:${projectId}`
+                ).emit(
+                    'ai-status',
+                    {
+                        status:'idle'
+                    }
+                )
+
+                socket.emit(
+                    'project-error',
+                    {
+                        message:
+                            error?.message||
+                            'Failed to process message.'
+                    }
+                )
+            }
+        }
+    )
+
+    socket.on(
+        'leave-project',
+        async projectId=>{
+            try{
+                if(
+                    !socket.projectId||
+                    String(projectId)!==
+                    String(socket.projectId)
+                ){
+                    return
+                }
+
+                const currentProjectId=
+                    String(socket.projectId)
+
+                await removeOnlineUser(
+                    currentProjectId,
+                    socket.user._id,
+                    socket.id
+                )
+
+                socket.leave(
+                    `project:${currentProjectId}`
+                )
+
+                socket.projectId=null
+
+                const onlineUsers=
+                    await getOnlineUsers(
+                        currentProjectId
+                    )
+
+                io.to(
+                    `project:${currentProjectId}`
+                ).emit(
+                    'online-users',
+                    onlineUsers
+                )
+            }catch(error){
+                console.error(
+                    'Leave project error:',
+                    error.message
+                )
+            }
+        }
+    )
+
+    socket.on(
+        'disconnect',
+        async reason=>{
+            console.log(
+                'Socket disconnected:',
+                socket.user.email,
+                '| socket:',
+                socket.id,
+                '| reason:',
+                reason
+            )
+
+            if(!socket.projectId)return
+
+            const projectId=
+                String(socket.projectId)
+
+            try{
+                const operation=
+                    await getDocumentOperation(
+                        projectId
+                    )
+
+                if(
+                    operation.socketId===
+                    socket.id
+                ){
+                    await releaseDocumentLock(
+                        projectId
+                    )
+
+                    await emitDocumentState(
+                        projectId
+                    )
+                }
+
+                await removeOnlineUser(
+                    projectId,
+                    socket.user._id,
+                    socket.id
+                )
+
+                const onlineUsers=
+                    await getOnlineUsers(
+                        projectId
+                    )
+
+                io.to(
+                    `project:${projectId}`
+                ).emit(
+                    'online-users',
+                    onlineUsers
+                )
+            }catch(error){
+                console.error(
+                    'Disconnect cleanup error:',
+                    error.message
+                )
+            }
+        }
+    )
+})
+
+if(!process.env.VERCEL){
+    const PORT=
+        process.env.PORT||3000
 
     server.listen(
         PORT,
-        () => {
-
+        ()=>{
             console.log(
-                `🚀 Server running locally on http://localhost:${PORT}`
+                `🚀 Server running on http://localhost:${PORT}`
             )
         }
     )

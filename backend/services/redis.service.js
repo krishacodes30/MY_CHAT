@@ -1,31 +1,411 @@
-// // import Redis from 'ioredis';
-
-// // import 'dotenv/config';
-
-// // const redisClient = new Redis({
-// //     host: process.env.REDIS_HOST,
-// //     port: process.env.REDIS_PORT,
-// //     password: process.env.REDIS_PASSWORD
-// // });
-
-
-// // redisClient.on('connect', () => {
-// //     console.log('Redis connected');
-// // })
-
-// // export default redisClient;
-
 
 
 // import redisClient from '../config/redis.js'
 
 
-// const recentMessagesKey = (projectId) =>
-//     `chat:recent:${projectId}`
+// /*
+// |--------------------------------------------------------------------------
+// | Presence configuration
+// |--------------------------------------------------------------------------
+// */
+
+// const PRESENCE_TTL = 45
 
 
-// const onlineUsersKey = (projectId) =>
-//     `project:online:${projectId}`
+// /*
+// |--------------------------------------------------------------------------
+// | Redis keys
+// |--------------------------------------------------------------------------
+// |
+// | presence:<projectId>:users
+// |     -> Set of online user IDs
+// |
+// | presence:<projectId>:user:<userId>
+// |     -> Set of socket IDs belonging to that user
+// |
+// */
+
+// const usersKey = projectId =>
+//     `presence:${String(projectId)}:users`
+
+
+// const socketsKey = (
+//     projectId,
+//     userId
+// ) =>
+//     `presence:${String(projectId)}:user:${String(userId)}`
+
+
+// /*
+// |--------------------------------------------------------------------------
+// | ADD ONLINE USER
+// |--------------------------------------------------------------------------
+// */
+
+// export async function addOnlineUser(
+//     projectId,
+//     userId,
+//     socketId
+// ) {
+
+//     const project =
+//         String(projectId)
+
+//     const user =
+//         String(userId)
+
+//     const socket =
+//         String(socketId)
+
+//     const key =
+//         socketsKey(
+//             project,
+//             user
+//         )
+
+
+//     /*
+//      * Store this specific socket.
+//      *
+//      * This allows:
+//      *
+//      * User
+//      * ├── Laptop socket
+//      * ├── Phone socket
+//      * └── Another tab socket
+//      *
+//      * without incorrectly marking the user offline.
+//      */
+
+//     await redisClient.sadd(
+//         key,
+//         socket
+//     )
+
+
+//     /*
+//      * User is considered online
+//      * for 45 seconds.
+//      */
+
+//     await redisClient.expire(
+//         key,
+//         PRESENCE_TTL
+//     )
+
+
+//     /*
+//      * Add user to project's online users.
+//      */
+
+//     await redisClient.sadd(
+//         usersKey(project),
+//         user
+//     )
+// }
+
+
+// /*
+// |--------------------------------------------------------------------------
+// | HEARTBEAT
+// |--------------------------------------------------------------------------
+// |
+// | Frontend sends:
+// |
+// | socket.emit('presence-heartbeat', projectId)
+// |
+// | every ~15 seconds.
+// |
+// */
+
+// export async function heartbeatOnlineUser(
+//     projectId,
+//     userId,
+//     socketId
+// ) {
+
+//     const project =
+//         String(projectId)
+
+//     const user =
+//         String(userId)
+
+//     const socket =
+//         String(socketId)
+
+//     const key =
+//         socketsKey(
+//             project,
+//             user
+//         )
+
+
+//     /*
+//      * Make sure this socket is still registered.
+//      */
+
+//     const exists =
+//         await redisClient.sismember(
+//             key,
+//             socket
+//         )
+
+
+//     /*
+//      * Socket disappeared from Redis.
+//      *
+//      * Re-add it.
+//      */
+
+//     if (!exists) {
+
+//         await addOnlineUser(
+//             project,
+//             user,
+//             socket
+//         )
+
+//         return
+//     }
+
+
+//     /*
+//      * Refresh TTL.
+//      */
+
+//     await redisClient.expire(
+//         key,
+//         PRESENCE_TTL
+//     )
+
+
+//     /*
+//      * Make sure user remains
+//      * in the project's online set.
+//      */
+
+//     await redisClient.sadd(
+//         usersKey(project),
+//         user
+//     )
+// }
+
+
+// /*
+// |--------------------------------------------------------------------------
+// | REMOVE SOCKET
+// |--------------------------------------------------------------------------
+// |
+// | IMPORTANT:
+// |
+// | Do NOT immediately remove the user.
+// |
+// | First remove only the disconnected socket.
+// |
+// | If another socket exists,
+// | the user stays ONLINE.
+// |
+// */
+
+// export async function removeOnlineUser(
+//     projectId,
+//     userId,
+//     socketId
+// ) {
+
+//     const project =
+//         String(projectId)
+
+//     const user =
+//         String(userId)
+
+//     const socket =
+//         String(socketId)
+
+//     const key =
+//         socketsKey(
+//             project,
+//             user
+//         )
+
+
+//     /*
+//      * Remove only this socket.
+//      */
+
+//     await redisClient.srem(
+//         key,
+//         socket
+//     )
+
+
+//     /*
+//      * Check how many sockets
+//      * the user still has.
+//      */
+
+//     const remainingSockets =
+//         await redisClient.scard(
+//             key
+//         )
+
+
+//     /*
+//      * No sockets left.
+//      *
+//      * User is OFFLINE.
+//      */
+
+//     if (
+//         remainingSockets === 0
+//     ) {
+
+//         await redisClient.del(
+//             key
+//         )
+
+//         await redisClient.srem(
+//             usersKey(project),
+//             user
+//         )
+
+//         return
+//     }
+
+
+//     /*
+//      * User still has another
+//      * device/tab connected.
+//      *
+//      * Keep them online.
+//      */
+
+//     await redisClient.expire(
+//         key,
+//         PRESENCE_TTL
+//     )
+// }
+
+
+// /*
+// |--------------------------------------------------------------------------
+// | GET ONLINE USERS
+// |--------------------------------------------------------------------------
+// */
+
+// export async function getOnlineUsers(
+//     projectId
+// ) {
+
+//     const project =
+//         String(projectId)
+
+//     const key =
+//         usersKey(project)
+
+
+//     /*
+//      * Get all users currently
+//      * listed as online.
+//      */
+
+//     const users =
+//         await redisClient.smembers(
+//             key
+//         )
+
+
+//     const onlineUsers = []
+
+
+//     /*
+//      * Verify every user's
+//      * socket key still exists.
+//      */
+
+//     for (
+//         const userId of users
+//     ) {
+
+//         const active =
+//             await redisClient.exists(
+//                 socketsKey(
+//                     project,
+//                     userId
+//                 )
+//             )
+
+
+//         if (active) {
+
+//             onlineUsers.push(
+//                 userId
+//             )
+
+//         } else {
+
+//             /*
+//              * Clean stale user
+//              * from project set.
+//              */
+
+//             await redisClient.srem(
+//                 key,
+//                 userId
+//             )
+//         }
+//     }
+
+
+//     return onlineUsers
+// }
+
+
+// /*
+// |--------------------------------------------------------------------------
+// | OPTIONAL: REMOVE USER FROM PROJECT
+// |--------------------------------------------------------------------------
+// |
+// | Useful when a user is explicitly
+// | leaving a project.
+// |
+// */
+
+// export async function removeUserFromProjectPresence(
+//     projectId,
+//     userId
+// ) {
+
+//     const project =
+//         String(projectId)
+
+//     const user =
+//         String(userId)
+
+
+//     await redisClient.del(
+//         socketsKey(
+//             project,
+//             user
+//         )
+//     )
+
+
+//     await redisClient.srem(
+//         usersKey(project),
+//         user
+//     )
+// }
+
+
+// /*
+// |--------------------------------------------------------------------------
+// | Recent Message Cache
+// |--------------------------------------------------------------------------
+// */
+
+// const recentMessagesKey = projectId =>
+//     `messages:${String(projectId)}`
 
 
 // export async function cacheRecentMessage(
@@ -33,516 +413,337 @@
 //     message
 // ) {
 
+//     const key =
+//         recentMessagesKey(projectId)
+
 //     await redisClient.lpush(
-//         recentMessagesKey(projectId),
+//         key,
 //         JSON.stringify(message)
 //     )
 
+//     /*
+//      * Keep only the latest 50 messages.
+//      */
 //     await redisClient.ltrim(
-//         recentMessagesKey(projectId),
+//         key,
 //         0,
 //         49
 //     )
 
+//     /*
+//      * Cache expires after 1 hour
+//      * if the project receives no new messages.
+//      */
 //     await redisClient.expire(
-//         recentMessagesKey(projectId),
-//         60 * 60 * 24
+//         key,
+//         3600
 //     )
 // }
 
 
-// export async function getRecentMessages(
-//     projectId
-// ) {
-
-//     const messages =
-//         await redisClient.lrange(
-//             recentMessagesKey(projectId),
-//             0,
-//             19
-//         )
-
-
-//     if (!messages.length) {
-//         return null
-//     }
-
-
-//     return messages
-//         .map(message => JSON.parse(message))
-//         .reverse()
-// }
-
-
-// export async function addOnlineUser(
-//     projectId,
-//     userId
-// ) {
-
-//     await redisClient.sadd(
-//         onlineUsersKey(projectId),
-//         userId.toString()
-//     )
-// }
-
-
-// export async function removeOnlineUser(
-//     projectId,
-//     userId
-// ) {
-
-//     await redisClient.srem(
-//         onlineUsersKey(projectId),
-//         userId.toString()
-//     )
-// }
-
-
-// export async function getOnlineUsers(
-//     projectId
-// ) {
-
-//     return redisClient.smembers(
-//         onlineUsersKey(projectId)
-//     )
-// }
 
 import redisClient from '../config/redis.js'
 
+const MESSAGE_CACHE_TTL = Number(
+    process.env.REDIS_MESSAGE_CACHE_TTL || 3600
+)
 
-/*
-|--------------------------------------------------------------------------
-| Presence configuration
-|--------------------------------------------------------------------------
-*/
+const MESSAGE_CACHE_SIZE = 200
 
-const PRESENCE_TTL = 45
+const PRESENCE_TTL = Number(
+    process.env.REDIS_PRESENCE_TTL || 45
+)
 
+function messageKey(projectId) {
+    return `project:${String(projectId)}:messages`
+}
 
-/*
-|--------------------------------------------------------------------------
-| Redis keys
-|--------------------------------------------------------------------------
-|
-| presence:<projectId>:users
-|     -> Set of online user IDs
-|
-| presence:<projectId>:user:<userId>
-|     -> Set of socket IDs belonging to that user
-|
-*/
+function presenceKey(projectId) {
+    return `project:${String(projectId)}:presence`
+}
 
-const usersKey = projectId =>
-    `presence:${String(projectId)}:users`
+function presenceMember(userId, socketId) {
+    return `${String(userId)}:${String(socketId)}`
+}
 
+function parsePresenceMember(member) {
+    const separator = member.indexOf(':')
 
-const socketsKey = (
-    projectId,
-    userId
-) =>
-    `presence:${String(projectId)}:user:${String(userId)}`
+    if (separator === -1) {
+        return null
+    }
 
+    return {
+        userId: member.slice(0, separator),
+        socketId: member.slice(separator + 1)
+    }
+}
 
-/*
-|--------------------------------------------------------------------------
-| ADD ONLINE USER
-|--------------------------------------------------------------------------
-*/
+export async function cacheRecentMessage(projectId, message) {
+    if (!projectId || !message) {
+        return false
+    }
+
+    try {
+        const key = messageKey(projectId)
+
+        await redisClient
+            .multi()
+            .rpush(key, JSON.stringify(message))
+            .ltrim(key, -MESSAGE_CACHE_SIZE, -1)
+            .expire(key, MESSAGE_CACHE_TTL)
+            .exec()
+
+        return true
+    } catch (error) {
+        console.error(
+            'Redis message cache write failed:',
+            error.message
+        )
+
+        return false
+    }
+}
+
+export async function getCachedMessages(projectId) {
+    if (!projectId) {
+        return null
+    }
+
+    try {
+        const values = await redisClient.lrange(
+            messageKey(projectId),
+            0,
+            -1
+        )
+
+        if (!values.length) {
+            return null
+        }
+
+        const messages = []
+
+        for (const value of values) {
+            try {
+                messages.push(JSON.parse(value))
+            } catch {
+                // Ignore one malformed cache entry.
+            }
+        }
+
+        return messages.length ? messages : null
+    } catch (error) {
+        console.error(
+            'Redis message cache read failed:',
+            error.message
+        )
+
+        return null
+    }
+}
+
+export async function cacheMessages(projectId, messages) {
+    if (!projectId || !Array.isArray(messages)) {
+        return false
+    }
+
+    try {
+        const key = messageKey(projectId)
+
+        const multi = redisClient.multi()
+
+        multi.del(key)
+
+        for (const message of messages.slice(-MESSAGE_CACHE_SIZE)) {
+            multi.rpush(key, JSON.stringify(message))
+        }
+
+        multi.expire(key, MESSAGE_CACHE_TTL)
+
+        await multi.exec()
+
+        return true
+    } catch (error) {
+        console.error(
+            'Redis message cache population failed:',
+            error.message
+        )
+
+        return false
+    }
+}
+
+export async function clearProjectMessageCache(projectId) {
+    if (!projectId) {
+        return false
+    }
+
+    try {
+        await redisClient.del(messageKey(projectId))
+        return true
+    } catch (error) {
+        console.error(
+            'Redis message cache clear failed:',
+            error.message
+        )
+
+        return false
+    }
+}
 
 export async function addOnlineUser(
     projectId,
     userId,
     socketId
 ) {
+    if (!projectId || !userId || !socketId) {
+        return false
+    }
 
-    const project =
-        String(projectId)
+    try {
+        const key = presenceKey(projectId)
+        const member = presenceMember(userId, socketId)
+        const expiresAt = Date.now() + PRESENCE_TTL * 1000
 
-    const user =
-        String(userId)
-
-    const socket =
-        String(socketId)
-
-    const key =
-        socketsKey(
-            project,
-            user
+        await redisClient.zadd(
+            key,
+            expiresAt,
+            member
         )
 
+        await redisClient.expire(
+            key,
+            PRESENCE_TTL + 60
+        )
 
-    /*
-     * Store this specific socket.
-     *
-     * This allows:
-     *
-     * User
-     * ├── Laptop socket
-     * ├── Phone socket
-     * └── Another tab socket
-     *
-     * without incorrectly marking the user offline.
-     */
+        return true
+    } catch (error) {
+        console.error(
+            'Redis presence add failed:',
+            error.message
+        )
 
-    await redisClient.sadd(
-        key,
-        socket
-    )
-
-
-    /*
-     * User is considered online
-     * for 45 seconds.
-     */
-
-    await redisClient.expire(
-        key,
-        PRESENCE_TTL
-    )
-
-
-    /*
-     * Add user to project's online users.
-     */
-
-    await redisClient.sadd(
-        usersKey(project),
-        user
-    )
+        return false
+    }
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| HEARTBEAT
-|--------------------------------------------------------------------------
-|
-| Frontend sends:
-|
-| socket.emit('presence-heartbeat', projectId)
-|
-| every ~15 seconds.
-|
-*/
 
 export async function heartbeatOnlineUser(
     projectId,
     userId,
     socketId
 ) {
-
-    const project =
-        String(projectId)
-
-    const user =
-        String(userId)
-
-    const socket =
-        String(socketId)
-
-    const key =
-        socketsKey(
-            project,
-            user
-        )
-
-
-    /*
-     * Make sure this socket is still registered.
-     */
-
-    const exists =
-        await redisClient.sismember(
-            key,
-            socket
-        )
-
-
-    /*
-     * Socket disappeared from Redis.
-     *
-     * Re-add it.
-     */
-
-    if (!exists) {
-
-        await addOnlineUser(
-            project,
-            user,
-            socket
-        )
-
-        return
+    if (!projectId || !userId || !socketId) {
+        return false
     }
 
+    try {
+        const key = presenceKey(projectId)
+        const member = presenceMember(userId, socketId)
+        const expiresAt = Date.now() + PRESENCE_TTL * 1000
 
-    /*
-     * Refresh TTL.
-     */
+        const exists = await redisClient.zscore(
+            key,
+            member
+        )
 
-    await redisClient.expire(
-        key,
-        PRESENCE_TTL
-    )
+        if (exists === null) {
+            return addOnlineUser(
+                projectId,
+                userId,
+                socketId
+            )
+        }
 
+        await redisClient.zadd(
+            key,
+            expiresAt,
+            member
+        )
 
-    /*
-     * Make sure user remains
-     * in the project's online set.
-     */
+        await redisClient.expire(
+            key,
+            PRESENCE_TTL + 60
+        )
 
-    await redisClient.sadd(
-        usersKey(project),
-        user
-    )
+        return true
+    } catch (error) {
+        console.error(
+            'Redis presence heartbeat failed:',
+            error.message
+        )
+
+        return false
+    }
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| REMOVE SOCKET
-|--------------------------------------------------------------------------
-|
-| IMPORTANT:
-|
-| Do NOT immediately remove the user.
-|
-| First remove only the disconnected socket.
-|
-| If another socket exists,
-| the user stays ONLINE.
-|
-*/
 
 export async function removeOnlineUser(
     projectId,
     userId,
     socketId
 ) {
-
-    const project =
-        String(projectId)
-
-    const user =
-        String(userId)
-
-    const socket =
-        String(socketId)
-
-    const key =
-        socketsKey(
-            project,
-            user
-        )
-
-
-    /*
-     * Remove only this socket.
-     */
-
-    await redisClient.srem(
-        key,
-        socket
-    )
-
-
-    /*
-     * Check how many sockets
-     * the user still has.
-     */
-
-    const remainingSockets =
-        await redisClient.scard(
-            key
-        )
-
-
-    /*
-     * No sockets left.
-     *
-     * User is OFFLINE.
-     */
-
-    if (
-        remainingSockets === 0
-    ) {
-
-        await redisClient.del(
-            key
-        )
-
-        await redisClient.srem(
-            usersKey(project),
-            user
-        )
-
-        return
+    if (!projectId || !userId || !socketId) {
+        return false
     }
 
-
-    /*
-     * User still has another
-     * device/tab connected.
-     *
-     * Keep them online.
-     */
-
-    await redisClient.expire(
-        key,
-        PRESENCE_TTL
-    )
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| GET ONLINE USERS
-|--------------------------------------------------------------------------
-*/
-
-export async function getOnlineUsers(
-    projectId
-) {
-
-    const project =
-        String(projectId)
-
-    const key =
-        usersKey(project)
-
-
-    /*
-     * Get all users currently
-     * listed as online.
-     */
-
-    const users =
-        await redisClient.smembers(
-            key
+    try {
+        await redisClient.zrem(
+            presenceKey(projectId),
+            presenceMember(userId, socketId)
         )
 
+        return true
+    } catch (error) {
+        console.error(
+            'Redis presence remove failed:',
+            error.message
+        )
 
-    const onlineUsers = []
+        return false
+    }
+}
 
+export async function getOnlineUsers(projectId) {
+    if (!projectId) {
+        return []
+    }
 
-    /*
-     * Verify every user's
-     * socket key still exists.
-     */
+    try {
+        const key = presenceKey(projectId)
+        const now = Date.now()
 
-    for (
-        const userId of users
-    ) {
+        await redisClient.zremrangebyscore(
+            key,
+            '-inf',
+            now
+        )
 
-        const active =
-            await redisClient.exists(
-                socketsKey(
-                    project,
-                    userId
-                )
-            )
+        const members = await redisClient.zrange(
+            key,
+            0,
+            -1
+        )
 
+        const users = new Set()
 
-        if (active) {
+        for (const member of members) {
+            const parsed = parsePresenceMember(member)
 
-            onlineUsers.push(
-                userId
-            )
-
-        } else {
-
-            /*
-             * Clean stale user
-             * from project set.
-             */
-
-            await redisClient.srem(
-                key,
-                userId
-            )
+            if (parsed?.userId) {
+                users.add(parsed.userId)
+            }
         }
-    }
 
+        if (!members.length) {
+            await redisClient.del(key)
+        }
 
-    return onlineUsers
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| OPTIONAL: REMOVE USER FROM PROJECT
-|--------------------------------------------------------------------------
-|
-| Useful when a user is explicitly
-| leaving a project.
-|
-*/
-
-export async function removeUserFromProjectPresence(
-    projectId,
-    userId
-) {
-
-    const project =
-        String(projectId)
-
-    const user =
-        String(userId)
-
-
-    await redisClient.del(
-        socketsKey(
-            project,
-            user
+        return Array.from(users)
+    } catch (error) {
+        console.error(
+            'Redis online users read failed:',
+            error.message
         )
-    )
 
-
-    await redisClient.srem(
-        usersKey(project),
-        user
-    )
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Recent Message Cache
-|--------------------------------------------------------------------------
-*/
-
-const recentMessagesKey = projectId =>
-    `messages:${String(projectId)}`
-
-
-export async function cacheRecentMessage(
-    projectId,
-    message
-) {
-
-    const key =
-        recentMessagesKey(projectId)
-
-    await redisClient.lpush(
-        key,
-        JSON.stringify(message)
-    )
-
-    /*
-     * Keep only the latest 50 messages.
-     */
-    await redisClient.ltrim(
-        key,
-        0,
-        49
-    )
-
-    /*
-     * Cache expires after 1 hour
-     * if the project receives no new messages.
-     */
-    await redisClient.expire(
-        key,
-        3600
-    )
+        return []
+    }
 }
