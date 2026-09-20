@@ -1512,7 +1512,7 @@ const Project=()=>{
     }
 })
 
-    socket.on(
+  socket.on(
     'project-document-upload-started',
     data=>{
         if(
@@ -1526,34 +1526,35 @@ const Project=()=>{
             status:
                 data?.status||
                 'uploading',
+
             fileName:
                 data?.fileName||
                 'Project PDF',
-            userId:String(
-                data?.userId||
-                ''
-            )
+
+            userId:
+                String(
+                    data?.userId||
+                    ''
+                )
         })
 
         setUploadingPdf(true)
+
         setPdfError('')
         setPdfStatus('')
 
         /*
          * IMPORTANT:
-         * Other collaborators should see the
-         * uploaded file instead of "No PDF uploaded".
+         *
+         * Do NOT create a fake activeDocument.
+         *
+         * During replacement the existing document
+         * remains the real document until the new
+         * document has been successfully indexed.
+         *
+         * The final project-document-state event
+         * replaces it with the new persisted document.
          */
-
-        setProjectDocument(previous=>({
-            ...(previous||{}),
-            fileName:
-                data?.fileName||
-                'Project PDF',
-            status:
-                data?.status||
-                'uploading'
-        }))
 
         setPdfInput(null)
 
@@ -1563,7 +1564,7 @@ const Project=()=>{
     }
 )
 
-      socket.on(
+    socket.on(
     'project-document-updated',
     data=>{
         if(
@@ -1578,6 +1579,12 @@ const Project=()=>{
             data?.ragDocument||
             null
 
+        /*
+         * This is the FINAL shared document state.
+         *
+         * Every collaborator receives the same document
+         * from Socket.IO and keeps it visible.
+         */
         setProjectDocument(
             documentInfo
         )
@@ -1595,8 +1602,18 @@ const Project=()=>{
 
         setPdfStatus(
             data?.message||
-            'Project PDF indexed successfully.'
+            (
+                documentInfo
+                    ? `${documentInfo.fileName||'Project PDF'} uploaded and indexed successfully.`
+                    : ''
+            )
         )
+
+        setPdfInput(null)
+
+        if(pdfInputRef.current){
+            pdfInputRef.current.value=''
+        }
     }
 )
 
@@ -1943,45 +1960,109 @@ const Project=()=>{
         })
     }
 
-    const handlePdfChange=event=>{
-        const file=event.target.files?.[0]||null
+    // const handlePdfChange=event=>{
+    //     const file=event.target.files?.[0]||null
 
-        setPdfError('')
-        setPdfStatus('')
+    //     setPdfError('')
+    //     setPdfStatus('')
 
-        if(!file){
-            setPdfInput(null)
-            return
-        }
+    //     if(!file){
+    //         setPdfInput(null)
+    //         return
+    //     }
 
-        const isPdf=
-            file.type==='application/pdf'||
-            file.name.toLowerCase().endsWith('.pdf')
+    //     const isPdf=
+    //         file.type==='application/pdf'||
+    //         file.name.toLowerCase().endsWith('.pdf')
 
-        if(!isPdf){
-            setPdfInput(null)
-            setPdfError('Please select a PDF file.')
+    //     if(!isPdf){
+    //         setPdfInput(null)
+    //         setPdfError('Please select a PDF file.')
 
-            if(pdfInputRef.current){
-                pdfInputRef.current.value=''
-            }
+    //         if(pdfInputRef.current){
+    //             pdfInputRef.current.value=''
+    //         }
 
-            return
-        }
+    //         return
+    //     }
 
-        if(file.size>MAX_PDF_SIZE){
-            setPdfInput(null)
-            setPdfError('PDF must be smaller than 10 MB.')
+    //     if(file.size>MAX_PDF_SIZE){
+    //         setPdfInput(null)
+    //         setPdfError('PDF must be smaller than 10 MB.')
 
-            if(pdfInputRef.current){
-                pdfInputRef.current.value=''
-            }
+    //         if(pdfInputRef.current){
+    //             pdfInputRef.current.value=''
+    //         }
 
-            return
-        }
+    //         return
+    //     }
 
-        setPdfInput(file)
+    //     setPdfInput(file)
+    // }
+const handlePdfChange=event=>{
+    const file=
+        event.target.files?.[0]||null
+
+    setPdfError('')
+    setPdfStatus('')
+
+    if(!file){
+        setPdfInput(null)
+        return
     }
+
+    if(
+        uploadingPdf||
+        removingPdf||
+        pdfOperation.status!=='idle'
+    ){
+        setPdfInput(null)
+
+        setPdfError(
+            'Another collaborator is currently processing the PDF.'
+        )
+
+        if(pdfInputRef.current){
+            pdfInputRef.current.value=''
+        }
+
+        return
+    }
+
+    const isPdf=
+        file.type==='application/pdf'||
+        file.name.toLowerCase().endsWith('.pdf')
+
+    if(!isPdf){
+        setPdfInput(null)
+
+        setPdfError(
+            'Please select a PDF file.'
+        )
+
+        if(pdfInputRef.current){
+            pdfInputRef.current.value=''
+        }
+
+        return
+    }
+
+    if(file.size>MAX_PDF_SIZE){
+        setPdfInput(null)
+
+        setPdfError(
+            'PDF must be smaller than 10 MB.'
+        )
+
+        if(pdfInputRef.current){
+            pdfInputRef.current.value=''
+        }
+
+        return
+    }
+
+    setPdfInput(file)
+}
 
     const clearPdfSelection=()=>{
         if(uploadingPdf)return
@@ -1995,7 +2076,456 @@ const Project=()=>{
         }
     }
 
-  const uploadPdf=async()=>{
+//   const uploadPdf=async()=>{
+//     if(!projectId){
+//         setPdfError(
+//             'Project ID is missing.'
+//         )
+
+//         return
+//     }
+
+//     if(!pdfInput){
+//         setPdfError(
+//             'Please select a PDF first.'
+//         )
+
+//         return
+//     }
+
+//     if(
+//         uploadingPdf||
+//         removingPdf||
+//         pdfOperation.status!=='idle'
+//     ){
+//         return
+//     }
+
+//     const socket=
+//         socketRef.current
+
+//     if(
+//         !socket||
+//         !socket.connected
+//     ){
+//         setPdfError(
+//             'Project connection is not ready. Please wait a moment.'
+//         )
+
+//         return
+//     }
+
+//     const operationStatus=
+//         activeDocument
+//             ? 'replacing'
+//             : 'uploading'
+
+//     setUploadingPdf(true)
+//     setPdfError('')
+//     setPdfStatus('')
+
+//     setPdfOperation({
+//         status:
+//             operationStatus,
+//         fileName:
+//             pdfInput.name,
+//         userId:
+//             currentId
+//     })
+
+//     try{
+//         const lockResult=
+//             await new Promise(resolve=>{
+//                 socket.emit(
+//                     'project-document-upload-started',
+//                     {
+//                         projectId,
+//                         fileName:
+//                             pdfInput.name,
+//                         status:
+//                             operationStatus
+//                     },
+//                     resolve
+//                 )
+//             })
+
+//         if(
+//             lockResult?.ok!==true
+//         ){
+//             throw new Error(
+//                 lockResult?.message||
+//                 'Another collaborator is already processing the PDF.'
+//             )
+//         }
+
+//         const formData=
+//             new FormData()
+
+//         formData.append(
+//             'file',
+//             pdfInput
+//         )
+
+//         const response=
+//             await axios.post(
+//                 `/ai/projects/${projectId}/documents`,
+//                 formData
+//             )
+
+//         const result=
+//             response.data?.data||
+//             response.data?.result||
+//             response.data||
+//             {}
+
+//         const documentInfo={
+//             docId:
+//                 result.docId||
+//                 null,
+//             fileName:
+//                 result.fileName||
+//                 pdfInput.name,
+//             pages:
+//                 Number(
+//                     result.pages
+//                 )||0,
+//             chunks:
+//                 Number(
+//                     result.chunks
+//                 )||0,
+//             vectors:
+//                 Number(
+//                     result.vectors
+//                 )||0,
+//             visualPages:
+//                 Number(
+//                     result.visualPages
+//                 )||0
+//         }
+
+//         setProjectDocument(
+//             documentInfo
+//         )
+
+//         setPdfOperation({
+//             status:'idle',
+//             fileName:'',
+//             userId:''
+//         })
+
+//         setUploadingPdf(false)
+
+//         setPdfStatus(
+//             documentInfo.pages>0
+//                 ?`${documentInfo.fileName} indexed successfully · ${documentInfo.pages} pages · ${documentInfo.chunks} chunks`
+//                 :`${documentInfo.fileName} indexed successfully`
+//         )
+
+//         setPdfInput(null)
+
+//         if(pdfInputRef.current){
+//             pdfInputRef.current.value=''
+//         }
+
+//         socket.emit(
+//             'project-document-updated',
+//             {
+//                 projectId,
+//                 document:
+//                     documentInfo,
+//                 message:
+//                     `${documentInfo.fileName} indexed successfully`
+//             }
+//         )
+//     }catch(error){
+//         console.error(
+//             'PDF upload failed:',
+//             error.response?.data||
+//             error
+//         )
+
+//         const backendMessage=
+//             error.response?.data?.message||
+//             error.response?.data?.error||
+//             error.response?.data?.errors?.[0]?.msg
+
+//         const finalError=
+//             backendMessage||
+//             (
+//                 error.response?.status===413
+//                     ?'PDF is too large.'
+//                     :error.response?.status===401
+//                         ?'Your session expired. Please log in again.'
+//                         :'Failed to upload and index the PDF.'
+//             )
+
+//         setPdfOperation({
+//             status:'idle',
+//             fileName:'',
+//             userId:''
+//         })
+
+//         setUploadingPdf(false)
+
+//         socket.emit(
+//             'project-document-operation-failed',
+//             {
+//                 projectId,
+//                 message:
+//                     finalError
+//             }
+//         )
+
+//         setPdfError(
+//             finalError
+//         )
+//     }
+// }
+
+
+// const uploadPdf=async()=>{
+//     if(!projectId){
+//         setPdfError(
+//             'Project ID is missing.'
+//         )
+
+//         return
+//     }
+
+//     if(!pdfInput){
+//         setPdfError(
+//             'Please select a PDF first.'
+//         )
+
+//         return
+//     }
+
+//     /*
+//      * ONLY ONE ACTIVE PDF PER PROJECT.
+//      *
+//      * Once a PDF exists, another PDF cannot be uploaded.
+//      * The current PDF must first be removed.
+//      */
+//     if(activeDocument){
+//         setPdfError(
+//             `A PDF is already active in this project: ${activeDocument.fileName||'Project PDF'}. Remove it before uploading another PDF.`
+//         )
+
+//         return
+//     }
+
+//     if(
+//         uploadingPdf||
+//         removingPdf||
+//         pdfOperation.status!=='idle'
+//     ){
+//         return
+//     }
+
+//     const socket=
+//         socketRef.current
+
+//     if(
+//         !socket||
+//         !socket.connected
+//     ){
+//         setPdfError(
+//             'Project connection is not ready. Please wait a moment.'
+//         )
+
+//         return
+//     }
+
+//     setUploadingPdf(true)
+//     setPdfError('')
+//     setPdfStatus('')
+
+//     const currentUserId=
+//         getUserId(currentUser)
+
+//     setPdfOperation({
+//         status:'uploading',
+//         fileName:pdfInput.name,
+//         userId:currentUserId
+//     })
+
+//     try{
+//         /*
+//          * Ask backend to acquire the project-level PDF lock.
+//          *
+//          * This event is broadcast to every collaborator,
+//          * so everyone immediately sees that a PDF is being
+//          * uploaded.
+//          */
+//         const lockResult=
+//             await new Promise(resolve=>{
+//                 socket.emit(
+//                     'project-document-upload-started',
+//                     {
+//                         projectId,
+//                         fileName:pdfInput.name,
+//                         status:'uploading'
+//                     },
+//                     resolve
+//                 )
+//             })
+
+//         if(lockResult?.ok!==true){
+//             throw new Error(
+//                 lockResult?.message||
+//                 'Another collaborator is already processing the PDF.'
+//             )
+//         }
+
+//         /*
+//          * Double-check local state after receiving the lock.
+//          */
+//         if(activeDocument){
+//             throw new Error(
+//                 'A PDF has already been uploaded to this project.'
+//             )
+//         }
+
+//         const formData=
+//             new FormData()
+
+//         formData.append(
+//             'file',
+//             pdfInput
+//         )
+
+//         const response=
+//             await axios.post(
+//                 `/ai/projects/${projectId}/documents`,
+//                 formData
+//             )
+
+//         const result=
+//             response.data?.data||
+//             response.data?.result||
+//             response.data||
+//             {}
+
+//         const documentInfo={
+//             docId:
+//                 result.docId||
+//                 null,
+
+//             fileName:
+//                 result.fileName||
+//                 pdfInput.name,
+
+//             pages:
+//                 Number(
+//                     result.pages
+//                 )||0,
+
+//             chunks:
+//                 Number(
+//                     result.chunks
+//                 )||0,
+
+//             vectors:
+//                 Number(
+//                     result.vectors
+//                 )||0,
+
+//             visualPages:
+//                 Number(
+//                     result.visualPages
+//                 )||0
+//         }
+
+//         /*
+//          * DO NOT directly set activeDocument here.
+//          *
+//          * The backend must persist project.ragDocument first.
+//          * Then project-document-updated is broadcast and BOTH
+//          * User A and User B receive the same persisted document.
+//          */
+
+//         setPdfOperation({
+//             status:'idle',
+//             fileName:'',
+//             userId:''
+//         })
+
+//         setUploadingPdf(false)
+
+//         setPdfStatus(
+//             documentInfo.pages>0
+//                 ?`${documentInfo.fileName} indexed successfully · ${documentInfo.pages} pages · ${documentInfo.chunks} chunks`
+//                 :`${documentInfo.fileName} indexed successfully`
+//         )
+
+//         setPdfInput(null)
+
+//         if(pdfInputRef.current){
+//             pdfInputRef.current.value=''
+//         }
+
+//         /*
+//          * Tell the backend that indexing completed.
+//          *
+//          * The server should read the persisted project.ragDocument
+//          * and broadcast the final document state to ALL
+//          * collaborators.
+//          */
+//         socket.emit(
+//             'project-document-updated',
+//             {
+//                 projectId,
+//                 document:documentInfo,
+//                 message:
+//                     `${documentInfo.fileName} indexed successfully`
+//             }
+//         )
+
+//     }catch(error){
+//         console.error(
+//             'PDF upload failed:',
+//             error.response?.data||
+//             error
+//         )
+
+//         const backendMessage=
+//             error.response?.data?.message||
+//             error.response?.data?.error||
+//             error.response?.data?.errors?.[0]?.msg
+
+//         const finalError=
+//             backendMessage||
+//             (
+//                 error.response?.status===413
+//                     ?'PDF is too large.'
+//                     :error.response?.status===401
+//                         ?'Your session expired. Please log in again.'
+//                         :error.message||
+//                         'Failed to upload and index the PDF.'
+//             )
+
+//         setPdfOperation({
+//             status:'idle',
+//             fileName:'',
+//             userId:''
+//         })
+
+//         setUploadingPdf(false)
+
+//         socket.emit(
+//             'project-document-operation-failed',
+//             {
+//                 projectId,
+//                 message:finalError
+//             }
+//         )
+
+//         setPdfError(
+//             finalError
+//         )
+//     }
+// }
+const uploadPdf=async()=>{
     if(!projectId){
         setPdfError(
             'Project ID is missing.'
@@ -2034,14 +2564,21 @@ const Project=()=>{
         return
     }
 
+    const replacing=
+        Boolean(activeDocument)
+
     const operationStatus=
-        activeDocument
+        replacing
             ? 'replacing'
             : 'uploading'
 
     setUploadingPdf(true)
+
     setPdfError('')
     setPdfStatus('')
+
+    const currentUserId=
+        getUserId(currentUser)
 
     setPdfOperation({
         status:
@@ -2049,18 +2586,22 @@ const Project=()=>{
         fileName:
             pdfInput.name,
         userId:
-            currentId
+            currentUserId
     })
 
     try{
+
         const lockResult=
             await new Promise(resolve=>{
+
                 socket.emit(
                     'project-document-upload-started',
                     {
                         projectId,
+
                         fileName:
                             pdfInput.name,
+
                         status:
                             operationStatus
                     },
@@ -2068,9 +2609,7 @@ const Project=()=>{
                 )
             })
 
-        if(
-            lockResult?.ok!==true
-        ){
+        if(lockResult?.ok!==true){
             throw new Error(
                 lockResult?.message||
                 'Another collaborator is already processing the PDF.'
@@ -2101,44 +2640,39 @@ const Project=()=>{
             docId:
                 result.docId||
                 null,
+
             fileName:
                 result.fileName||
                 pdfInput.name,
+
             pages:
                 Number(
                     result.pages
                 )||0,
+
             chunks:
                 Number(
                     result.chunks
                 )||0,
+
             vectors:
                 Number(
                     result.vectors
                 )||0,
+
             visualPages:
                 Number(
                     result.visualPages
                 )||0
         }
 
-        setProjectDocument(
-            documentInfo
-        )
-
-        setPdfOperation({
-            status:'idle',
-            fileName:'',
-            userId:''
-        })
-
-        setUploadingPdf(false)
-
-        setPdfStatus(
-            documentInfo.pages>0
-                ?`${documentInfo.fileName} indexed successfully · ${documentInfo.pages} pages · ${documentInfo.chunks} chunks`
-                :`${documentInfo.fileName} indexed successfully`
-        )
+        /*
+         * Do not directly set activeDocument here.
+         *
+         * Backend first saves the new document
+         * into MongoDB and then broadcasts the
+         * final shared state to every collaborator.
+         */
 
         setPdfInput(null)
 
@@ -2146,17 +2680,29 @@ const Project=()=>{
             pdfInputRef.current.value=''
         }
 
+        setPdfStatus(
+            documentInfo.pages>0
+                ?`${documentInfo.fileName} indexed successfully · ${documentInfo.pages} pages · ${documentInfo.chunks} chunks`
+                :`${documentInfo.fileName} indexed successfully`
+        )
+
         socket.emit(
             'project-document-updated',
             {
                 projectId,
+
                 document:
                     documentInfo,
+
                 message:
-                    `${documentInfo.fileName} indexed successfully`
+                    replacing
+                        ?`${documentInfo.fileName} replaced and indexed successfully`
+                        :`${documentInfo.fileName} indexed successfully`
             }
         )
+
     }catch(error){
+
         console.error(
             'PDF upload failed:',
             error.response?.data||
@@ -2175,7 +2721,8 @@ const Project=()=>{
                     ?'PDF is too large.'
                     :error.response?.status===401
                         ?'Your session expired. Please log in again.'
-                        :'Failed to upload and index the PDF.'
+                        :error.message||
+                        'Failed to upload and index the PDF.'
             )
 
         setPdfOperation({
@@ -2200,6 +2747,8 @@ const Project=()=>{
         )
     }
 }
+
+
 
   const removePdf=async()=>{
     if(
@@ -2570,7 +3119,7 @@ const Project=()=>{
                                 </span>
                             </div>
 
-                         <input
+               <input
     ref={pdfInputRef}
     type="file"
     accept="application/pdf,.pdf"
@@ -2583,54 +3132,77 @@ const Project=()=>{
     className="sr-only"
 />
 
-                            {activeDocument&&(
-                                <div className="mt-3 rounded-2xl border-2 border-black bg-white p-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-black bg-[#FFC928] text-[9px] font-black">
-                                            PDF
-                                        </div>
+   {activeDocument&&(
+    <div className="mt-3 rounded-2xl border-2 border-black bg-white p-3">
+        <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-black bg-[#FFC928] text-[9px] font-black">
+                PDF
+            </div>
 
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-xs font-black">
-                                                {activeDocument.fileName}
-                                            </p>
-                                            <p className="mt-1 text-[9px] font-bold text-black/50">
-                                                Active document
-                                            </p>
-                                        </div>
+            <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-black">
+                    {activeDocument.fileName||'Project PDF'}
+                </p>
 
-                                        <span className={`rounded-lg border-2 border-black px-2 py-1 text-[8px] font-black ${
-                                            pdfOperation.status!=='idle'
-                                                ? 'bg-[#FFC928]'
-                                                : 'bg-[#C8F7C5]'
-                                        }`}>
-                                            {pdfOperation.status!=='idle'
-                                                ? pdfOperationLabel
-                                                : 'INDEXED'}
-                                        </span>
-                                    </div>
+                <p className="mt-1 text-[9px] font-bold text-black/50">
+                    Available to all collaborators
+                </p>
+            </div>
 
-                                    <div className="mt-3 flex gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={()=>pdfInputRef.current?.click()}
-                                            disabled={pdfBusy}
-                                            className="flex-1 rounded-xl border-2 border-black bg-[#FFC928] px-3 py-2 text-[10px] font-black"
-                                        >
-                                            Replace PDF
-                                        </button>
+            <span className="rounded-lg border-2 border-black bg-[#C8F7C5] px-2 py-1 text-[8px] font-black">
+    {pdfOperation.status==='replacing'
+        ?'REPLACING'
+        :'INDEXED'
+    }
+</span>
+        </div>
 
-                                        <button
-                                            type="button"
-                                            onClick={()=>setShowRemovePdfConfirm(true)}
-                                            disabled={pdfBusy}
-                                            className="rounded-xl border-2 border-black bg-white px-3 py-2 text-[10px] font-black"
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+        <div className="mt-3 rounded-xl border-2 border-black bg-[#EDE9FF] p-3">
+            <p className="text-[10px] font-black">
+                PDF uploaded for this project
+            </p>
+
+            <p className="mt-1 text-[9px] font-medium text-black/60">
+                This document is currently being used as project knowledge
+                for AI/RAG and is visible to every collaborator.
+            </p>
+        </div>
+
+       <div className="mt-3 flex gap-2">
+
+    <button
+        type="button"
+        onClick={()=>{
+            if(pdfBusy)return
+
+            setPdfError('')
+            setPdfStatus('')
+
+            pdfInputRef.current?.click()
+        }}
+        disabled={pdfBusy}
+        className="flex-1 rounded-xl border-2 border-black bg-[#B9A9F5] px-3 py-2 text-[10px] font-black disabled:cursor-not-allowed disabled:opacity-50"
+    >
+        {pdfOperation.status==='replacing'
+            ?'Replacing...'
+            :'Replace PDF'
+        }
+    </button>
+
+    <button
+        type="button"
+        onClick={()=>
+            setShowRemovePdfConfirm(true)
+        }
+        disabled={pdfBusy}
+        className="flex-1 rounded-xl border-2 border-black bg-white px-3 py-2 text-[10px] font-black disabled:cursor-not-allowed disabled:opacity-50"
+    >
+        Remove PDF
+    </button>
+
+</div>
+    </div>
+)}
 
                             {!activeDocument&&(
                                 <div className="mt-3 rounded-2xl border-2 border-dashed border-black bg-white p-3 text-center">
@@ -2644,9 +3216,12 @@ const Project=()=>{
                                                 <p className="mt-2 truncate text-xs font-black">
                                                     {pdfOperation.fileName||'Project PDF'}
                                                 </p>
-                                                <p className="mt-1 text-[9px] font-bold text-black/50">
-                                                    Another collaborator is {pdfOperation.status==='replacing'?'replacing':'uploading'} the project PDF.
-                                                </p>
+                                               <p className="mt-1 text-[9px] font-bold text-black/50">
+    {pdfOperation.status==='replacing'
+        ?'Replacing project knowledge...'
+        :'Available to all collaborators'
+    }
+</p>
                                                 <div className="mt-2 w-full rounded-xl border-2 border-black bg-[#FFC928] px-3 py-2 text-[10px] font-black">
                                                     {pdfOperationLabel}...
                                                 </div>
@@ -2681,7 +3256,8 @@ const Project=()=>{
                                         <button
                                             type="button"
                                             onClick={clearPdfSelection}
-                                          disabled={
+                                 disabled={
+    Boolean(activeDocument)||
     uploadingPdf||
     removingPdf||
     pdfOperation.status!=='idle'

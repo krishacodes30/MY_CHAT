@@ -986,195 +986,457 @@ io.on('connection',socket=>{
     )
 
     socket.on(
-        'project-document-upload-started',
-        async(data,ack)=>{
-            try{
-                const projectId=
-                    data?.projectId
+    'project-document-upload-started',
+    async(data,ack)=>{
+        const projectId=
+            data?.projectId
 
-                if(
-                    !projectId||
-                    !socket.projectId||
-                    String(projectId)!==
-                    String(socket.projectId)
-                ){
-                    if(typeof ack==='function'){
-                        ack({
-                            ok:false,
-                            message:
-                                'Project connection is not ready.'
-                        })
-                    }
+        try{
 
-                    return
-                }
-
-                const project=
-                    await projectModel.findOne({
-                        _id:projectId,
-                        users:socket.user._id
-                    }).select('_id')
-
-                if(!project){
-                    if(typeof ack==='function'){
-                        ack({
-                            ok:false,
-                            message:
-                                'You are not a member of this project.'
-                        })
-                    }
-
-                    return
-                }
-
-                const existing=
-                    await getDocumentOperation(
-                        projectId
-                    )
-
-                if(
-                    existing.status&&
-                    existing.status!=='idle'
-                ){
-                    if(typeof ack==='function'){
-                        ack({
-                            ok:false,
-                            message:
-                                existing.status==='removing'
-                                    ?'Another collaborator is removing the PDF.'
-                                    :'Another collaborator is currently processing the PDF.'
-                        })
-                    }
-
-                    return
-                }
-
-                const lockKey=
-                    documentLockKey(projectId)
-
-                const operationKey=
-                    documentOperationKey(projectId)
-
-                const lockValue=
-                    `${socket.id}:${String(socket.user._id)}`
-
-                const acquired=
-                    await redisClient.set(
-                        lockKey,
-                        lockValue,
-                        {
-                            NX:true,
-                            EX:1800
-                        }
-                    )
-
-                if(!acquired){
-                    if(typeof ack==='function'){
-                        ack({
-                            ok:false,
-                            message:
-                                'Another collaborator is currently changing the PDF.'
-                        })
-                    }
-
-                    return
-                }
-
-                const operation={
-                    status:
-                        data?.status||
-                        'uploading',
-                    fileName:
-                        data?.fileName||
-                        'Project PDF',
-                    userId:
-                        String(socket.user._id),
-                    socketId:socket.id
-                }
-
-                await redisClient.set(
-                    operationKey,
-                    JSON.stringify(operation),
-                    {
-                        EX:1800
-                    }
-                )
-
-                io.to(
-                    `project:${projectId}`
-                ).emit(
-                    'project-document-upload-started',
-                    {
-                        projectId:
-                            String(projectId),
-                        fileName:
-                            operation.fileName,
-                        status:
-                            operation.status,
-                        userId:
-                            operation.userId
-                    }
-                )
-
-                if(typeof ack==='function'){
-                    ack({ok:true})
-                }
-            }catch(error){
-                console.error(
-                    'Project document upload-start error:',
-                    error.message
-                )
+            if(
+                !projectId||
+                !socket.projectId||
+                String(projectId)!==
+                String(socket.projectId)
+            ){
 
                 if(typeof ack==='function'){
                     ack({
                         ok:false,
                         message:
-                            'Failed to start PDF operation.'
+                            'Project connection is not ready.'
                     })
                 }
+
+                return
             }
-        }
-    )
 
-    socket.on(
-        'project-document-updated',
-        async data=>{
-            try{
-                const projectId=
-                    data?.projectId
+            const project=
+                await projectModel.findOne({
+                    _id:projectId,
+                    users:socket.user._id
+                })
 
-                if(
-                    !projectId||
-                    !socket.projectId||
-                    String(projectId)!==
-                    String(socket.projectId)
-                ){
-                    return
+            if(!project){
+
+                if(typeof ack==='function'){
+                    ack({
+                        ok:false,
+                        message:
+                            'You are not a member of this project.'
+                    })
                 }
 
-                const project=
-                    await projectModel.findOne({
-                        _id:projectId,
-                        users:socket.user._id
-                    }).select('_id')
+                return
+            }
 
-                if(!project)return
+            const existing=
+                await getDocumentOperation(
+                    projectId
+                )
 
+            if(
+                existing.status&&
+                existing.status!=='idle'
+            ){
+
+                if(typeof ack==='function'){
+                    ack({
+                        ok:false,
+                        message:
+                            existing.status==='removing'
+                                ?'Another collaborator is removing the PDF.'
+                                :existing.status==='replacing'
+                                    ?'Another collaborator is already replacing the PDF.'
+                                    :'Another collaborator is currently processing the PDF.'
+                    })
+                }
+
+                return
+            }
+
+            const replacing=
+                data?.status==='replacing'
+
+            /*
+             * If this is a normal upload, a PDF must
+             * not already exist.
+             */
+
+            if(
+                !replacing&&
+                project.ragDocument
+            ){
+
+                if(typeof ack==='function'){
+                    ack({
+                        ok:false,
+                        message:
+                            `A PDF is already uploaded for this project: ${project.ragDocument.fileName||'Project PDF'}. Use Replace PDF instead.`
+                    })
+                }
+
+                return
+            }
+
+            /*
+             * A replacement is only valid when an
+             * existing PDF actually exists.
+             */
+
+            if(
+                replacing&&
+                !project.ragDocument
+            ){
+
+                if(typeof ack==='function'){
+                    ack({
+                        ok:false,
+                        message:
+                            'There is no existing PDF to replace. Upload a PDF instead.'
+                    })
+                }
+
+                return
+            }
+
+            const lockKey=
+                documentLockKey(projectId)
+
+            const operationKey=
+                documentOperationKey(projectId)
+
+            const lockValue=
+                `${socket.id}:${String(socket.user._id)}`
+
+            const acquired=
+                await redisClient.set(
+                    lockKey,
+                    lockValue,
+                    'NX',
+                    'EX',
+                    1800
+                )
+
+            if(!acquired){
+
+                if(typeof ack==='function'){
+                    ack({
+                        ok:false,
+                        message:
+                            'Another collaborator is currently changing the PDF.'
+                    })
+                }
+
+                return
+            }
+
+            const operation={
+                status:
+                    replacing
+                        ?'replacing'
+                        :'uploading',
+
+                fileName:
+                    data?.fileName||
+                    'Project PDF',
+
+                userId:
+                    String(
+                        socket.user._id
+                    ),
+
+                socketId:
+                    socket.id
+            }
+
+            await redisClient.set(
+                operationKey,
+                JSON.stringify(operation),
+                'EX',
+                1800
+            )
+
+            /*
+             * IMPORTANT:
+             *
+             * Replacement deletes ALL existing
+             * vectors belonging to this project.
+             *
+             * Since a project is allowed to have
+             * exactly one PDF, this is intentional.
+             */
+
+            if(replacing){
+
+                console.log(
+                    'Replacing project PDF:',
+                    projectId,
+                    '| old file:',
+                    project.ragDocument?.fileName
+                )
+
+                try{
+
+                    await deleteProjectVectors(
+                        String(projectId)
+                    )
+
+                    /*
+                     * Clear the old persistent document
+                     * before the new PDF is indexed.
+                     */
+
+                    project.ragDocument=null
+
+                    await project.save()
+
+                    console.log(
+                        'Old project PDF vectors deleted:',
+                        projectId
+                    )
+
+                }catch(replaceError){
+
+                    console.error(
+                        'Project PDF replacement cleanup failed:',
+                        replaceError.message
+                    )
+
+                    await releaseDocumentLock(
+                        projectId
+                    )
+
+                    if(typeof ack==='function'){
+                        ack({
+                            ok:false,
+                            message:
+                                'Failed to remove the current PDF knowledge before replacement.'
+                        })
+                    }
+
+                    return
+                }
+            }
+
+            io.to(
+                `project:${projectId}`
+            ).emit(
+                'project-document-upload-started',
+                {
+                    projectId:
+                        String(projectId),
+
+                    fileName:
+                        operation.fileName,
+
+                    status:
+                        operation.status,
+
+                    userId:
+                        operation.userId
+                }
+            )
+
+            if(typeof ack==='function'){
+                ack({
+                    ok:true
+                })
+            }
+
+        }catch(error){
+
+            console.error(
+                'Project document upload-start error:',
+                error.message
+            )
+
+            if(projectId){
+                await releaseDocumentLock(
+                    projectId
+                )
+            }
+
+            if(typeof ack==='function'){
+                ack({
+                    ok:false,
+                    message:
+                        error.message||
+                        'Failed to start PDF operation.'
+                })
+            }
+        }
+    }
+)
+
+  socket.on(
+    'project-document-updated',
+    async data=>{
+        try{
+            const projectId=
+                data?.projectId
+
+            if(
+                !projectId||
+                !socket.projectId||
+                String(projectId)!==
+                String(socket.projectId)
+            ){
+                return
+            }
+
+            const project=
+                await projectModel.findOne({
+                    _id:projectId,
+                    users:socket.user._id
+                })
+
+            if(!project)return
+
+            const documentInfo=
+                data?.document
+
+            if(
+                !documentInfo||
+                !documentInfo.fileName
+            ){
                 await releaseDocumentLock(
                     projectId
                 )
 
-                await emitDocumentState(
-                    projectId
+                io.to(
+                    `project:${projectId}`
+                ).emit(
+                    'project-document-operation-failed',
+                    {
+                        projectId:
+                            String(projectId),
+                        message:
+                            'Uploaded PDF information is missing.'
+                    }
                 )
-            }catch(error){
-                console.error(
-                    'Project document update error:',
-                    error.message
+
+                return
+            }
+
+            /*
+             * IMPORTANT:
+             *
+             * Save the final PDF information in MongoDB.
+             *
+             * MongoDB is the persistent source of truth.
+             * Qdrant stores the actual document vectors.
+             * Socket.IO synchronizes the UI.
+             */
+
+            project.ragDocument={
+                docId:
+                    documentInfo.docId||
+                    null,
+
+                fileName:
+                    documentInfo.fileName,
+
+                pages:
+                    Number(
+                        documentInfo.pages
+                    )||0,
+
+                chunks:
+                    Number(
+                        documentInfo.chunks
+                    )||0,
+
+                vectors:
+                    Number(
+                        documentInfo.vectors
+                    )||0,
+
+                visualPages:
+                    Number(
+                        documentInfo.visualPages
+                    )||0,
+
+                uploadedBy:
+                    String(
+                        socket.user._id
+                    ),
+
+                uploadedAt:
+                    new Date()
+            }
+
+            await project.save()
+
+            console.log(
+                'Project PDF state saved:',
+                projectId,
+                '| file:',
+                project.ragDocument.fileName,
+                '| by:',
+                socket.user.email
+            )
+
+            /*
+             * Release the Redis operation lock
+             * only AFTER MongoDB has successfully
+             * stored the document.
+             */
+
+           await releaseDocumentLock(
+    projectId
+)
+
+io.to(
+    `project:${projectId}`
+).emit(
+    'project-document-updated',
+    {
+        projectId:
+            String(projectId),
+
+        document:
+            project.ragDocument,
+
+        message:
+            data?.message||
+            `${project.ragDocument.fileName} indexed successfully`
+    }
+)
+
+await emitDocumentState(
+    projectId
+)
+
+        }catch(error){
+            console.error(
+                'Project document update error:',
+                error.message
+            )
+
+            if(data?.projectId){
+
+                await releaseDocumentLock(
+                    data.projectId
+                )
+
+                io.to(
+                    `project:${data.projectId}`
+                ).emit(
+                    'project-document-operation-failed',
+                    {
+                        projectId:
+                            String(
+                                data.projectId
+                            ),
+                        message:
+                            'Failed to save project PDF state.'
+                    }
                 )
             }
         }
-    )
+    }
+)
 
     socket.on(
         'project-document-operation-failed',
@@ -1320,15 +1582,15 @@ io.on('connection',socket=>{
                 const lockValue=
                     `${socket.id}:${String(socket.user._id)}`
 
-                const acquired=
-                    await redisClient.set(
-                        lockKey,
-                        lockValue,
-                        {
-                            NX:true,
-                            EX:1800
-                        }
-                    )
+                // const acquired=
+                   const acquired=
+    await redisClient.set(
+        lockKey,
+        lockValue,
+        'NX',
+        'EX',
+        1800
+    )
 
                 if(!acquired){
                     if(typeof ack==='function'){
